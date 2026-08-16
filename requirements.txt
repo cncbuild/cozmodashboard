@@ -1,0 +1,11 @@
+# Core library that talks to Cozmo directly over WiFi (no cloud, no original app needed).
+pycozmo==0.8.0
+
+# pycozmo imports the stdlib "chunk" module, which was removed in Python 3.13
+# (it's still needed to read Cozmo's built-in sound bank files). This package
+# is the official PyPI backport that restores it. If you ever run this on
+# Python 3.12 or older, this line is harmless but unnecessary.
+standard-chunk==3.13.0
+
+# --- Added in later stages (uncomment / installed when we get there) ---
+# flask
