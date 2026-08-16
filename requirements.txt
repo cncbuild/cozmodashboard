@@ -7,5 +7,11 @@ pycozmo==0.8.0
 # Python 3.12 or older, this line is harmless but unnecessary.
 standard-chunk==3.13.0
 
-# --- Added in later stages (uncomment / installed when we get there) ---
-# flask
+# Web backend that exposes driving/animation/TTS/camera endpoints to the
+# browser-based frontend (Stage 3).
+flask==3.1.3
+
+# Offline text-to-speech for "make Cozmo talk" -- uses Windows' built-in
+# SAPI voices, no internet or cloud account needed. On Linux this falls
+# back to espeak (see Stage 4 notes about moving to Endless OS).
+pyttsx3==2.99
