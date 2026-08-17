@@ -57,7 +57,8 @@ downloads Cozmo's assets, downloads an offline speech voice for
 [piper-tts](https://github.com/OHF-Voice/piper1-gpl) (used instead of
 `pyttsx3` on Linux, since `pyttsx3`'s Linux backend needs a system-installed
 `espeak` binary -- piper is a plain pip package with everything bundled
-in), and creates a double-click "Cozmo Hardware Test" icon on the Desktop.
+in), and adds a "Cozmo Hardware Test" entry to the app grid (searchable the
+same way as Terminal/Settings -- Endless OS doesn't show desktop icons).
 
 ## Testing against real Cozmo
 
@@ -71,8 +72,8 @@ error on its own).
 1. Join this laptop's WiFi to Cozmo's own hotspot (shown on his screen when
    he's on). You'll lose normal internet access while connected to him.
 2. Windows: double-click `Run Hardware Test.bat`.
-   Linux: double-click the "Cozmo Hardware Test" desktop icon (or run
-   `.venv/bin/python backend/manual_test.py`).
+   Linux: search the app grid for "Cozmo Hardware Test" and click it (or
+   run `.venv/bin/python backend/manual_test.py`).
 3. Watch Cozmo and read the terminal output -- it tells you plainly whether
    every step was confirmed or whether the WiFi link dropped partway
    through.

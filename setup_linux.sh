@@ -51,10 +51,15 @@ else
     .venv/bin/python -m piper.download_voices en_US-lessac-medium --download-dir voices
 fi
 
-echo "== Creating a double-click desktop icon for the hardware test =="
-DESKTOP_DIR="$HOME/Desktop"
-mkdir -p "$DESKTOP_DIR"
-LAUNCHER="$DESKTOP_DIR/Cozmo Hardware Test.desktop"
+echo "== Adding 'Cozmo Hardware Test' to the app grid =="
+# Endless OS's shell is an app-grid launcher (like the one you used to find
+# Terminal/Settings), not a classic desktop with icons -- files placed in
+# ~/Desktop generally aren't shown there at all. ~/.local/share/applications
+# is the standard place any Linux desktop looks for user-installed apps, so
+# this makes the test searchable/clickable the same way Terminal already is.
+APPS_DIR="$HOME/.local/share/applications"
+mkdir -p "$APPS_DIR"
+LAUNCHER="$APPS_DIR/cozmo-hardware-test.desktop"
 cat > "$LAUNCHER" <<EOF
 [Desktop Entry]
 Type=Application
@@ -63,17 +68,13 @@ Comment=Run the Stage 2 backend hardware test against a real Cozmo
 Exec=bash -c 'cd "$PROJECT_DIR" && .venv/bin/python backend/manual_test.py; echo; read -p "Test finished. Press Enter to close..."'
 Icon=utilities-terminal
 Terminal=true
+Categories=Utility;
 EOF
 chmod +x "$LAUNCHER"
 
 echo ""
 echo "Setup complete!"
 echo ""
-echo "A 'Cozmo Hardware Test' icon was added to your Desktop. The first"
-echo "time you double-click it, the desktop environment may refuse to run"
-echo "it until you right-click it and choose 'Allow Launching' (a one-time"
-echo "security confirmation for new desktop icons) -- after that, it just"
-echo "double-clicks and runs normally."
-echo ""
-echo "To use it: join this laptop's WiFi to Cozmo's hotspot, then"
-echo "double-click the 'Cozmo Hardware Test' icon on your Desktop."
+echo "To use it: join this laptop's WiFi to Cozmo's hotspot, then open the"
+echo "app grid and search for 'Cozmo Hardware Test' (same way you found"
+echo "Terminal/Settings earlier), and click it."
