@@ -12,11 +12,16 @@ Run it with:
     "D:\\Projects\\Cozmo Dashboard\\.venv\\Scripts\\python.exe" backend\\manual_test.py
 """
 
+import pathlib
 import time
 
 import pycozmo
 
 from cozmo_service import service
+
+# Always save next to this script, regardless of what folder the launcher
+# (e.g. the .bat file, or a terminal opened elsewhere) was run from.
+CAMERA_TEST_PATH = pathlib.Path(__file__).parent / "camera_test.jpg"
 
 
 def step(description: str) -> None:
@@ -61,14 +66,20 @@ def main() -> None:
     service.say("Hello! I am Cozmo, and I am working.")
     # say() blocks until playback finishes when called directly like this.
 
-    step("Grabbing a camera snapshot -- saved to camera_test.jpg in this folder.")
-    jpeg = service.get_latest_jpeg(timeout=3.0)
+    step(f"Grabbing a camera snapshot -- will be saved to {CAMERA_TEST_PATH}")
+    # Try a few times -- the very first frame or two after enabling the
+    # camera can be dropped/incomplete over WiFi, which is normal.
+    jpeg = None
+    for attempt in range(5):
+        jpeg = service.get_latest_jpeg(timeout=3.0)
+        if jpeg:
+            break
+        print(f"  (attempt {attempt + 1}/5: no frame yet, retrying...)")
     if jpeg:
-        with open("camera_test.jpg", "wb") as f:
-            f.write(jpeg)
-        print("Saved camera_test.jpg -- open it to see what Cozmo sees.")
+        CAMERA_TEST_PATH.write_bytes(jpeg)
+        print(f"Saved {CAMERA_TEST_PATH} -- open it to see what Cozmo sees.")
     else:
-        print("No camera frame received within 3 seconds -- camera may need troubleshooting.")
+        print("No camera frame received after several attempts -- camera may need troubleshooting.")
 
     print("\nAll checks sent. If Cozmo drove, turned, moved his head/lift,")
     print("played an animation, spoke the phrase out loud, and a")
