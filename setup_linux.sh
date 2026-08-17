@@ -31,10 +31,16 @@ echo "== Installing Python packages =="
 .venv/bin/pip install -r requirements.txt
 
 echo "== Downloading Cozmo's animation/sound assets (one-time, a few hundred MB) =="
-if .venv/bin/pycozmo_resources.py status >/dev/null 2>&1; then
+# Invoked as ".venv/bin/python <script>" rather than running the script
+# directly -- pycozmo installs this as an old-style "raw script", and its
+# auto-generated first line (which names the exact Python interpreter to
+# use) breaks if the path to this project folder contains a space, like
+# "Cozmo Dashboard" does. Explicitly naming the interpreter here sidesteps
+# that entirely.
+if .venv/bin/python .venv/bin/pycozmo_resources.py status >/dev/null 2>&1; then
     echo "Already downloaded, skipping."
 else
-    .venv/bin/pycozmo_resources.py download
+    .venv/bin/python .venv/bin/pycozmo_resources.py download
 fi
 
 echo "== Downloading the offline text-to-speech voice (one-time, ~60MB) =="
