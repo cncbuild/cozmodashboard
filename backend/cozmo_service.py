@@ -39,6 +39,14 @@ MAX_HEAD_ANGLE = pycozmo.MAX_HEAD_ANGLE.radians
 MIN_LIFT_HEIGHT = pycozmo.MIN_LIFT_HEIGHT.mm
 MAX_LIFT_HEIGHT = pycozmo.MAX_LIFT_HEIGHT.mm
 
+# pycozmo never sets a volume automatically -- Cozmo just keeps whatever
+# level he was last left at (from a previous session, or however he shipped
+# from the factory), which can easily be low or effectively muted. Without
+# this, TTS/audio can appear to work perfectly (no errors, connection
+# stays alive) while being completely inaudible. Range is 0-65535; this
+# picks a solidly audible level without necessarily being max volume.
+STARTUP_VOLUME = 45000
+
 
 def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
@@ -96,6 +104,10 @@ class CozmoService:
         # files (downloaded once via pycozmo_resources.py), not anything
         # from the robot, so it's quick.
         client.load_anims()
+
+        # Without this, Cozmo keeps whatever volume he was last left at,
+        # which can be inaudibly low -- see the comment on STARTUP_VOLUME.
+        client.set_volume(STARTUP_VOLUME)
 
         # Turn on the camera and register a handler that keeps only the
         # single most recent frame -- we don't need a history, just
