@@ -81,6 +81,13 @@ class CozmoService:
         client.wait_for_robot()
         self._client = client
 
+        # pycozmo does NOT load animation clip data automatically -- without
+        # this call, play_anim() raises "Animations not loaded." even
+        # though the connection itself is fine. This reads local asset
+        # files (downloaded once via pycozmo_resources.py), not anything
+        # from the robot, so it's quick.
+        client.load_anims()
+
         # Turn on the camera and register a handler that keeps only the
         # single most recent frame -- we don't need a history, just
         # "what does Cozmo see right now".
