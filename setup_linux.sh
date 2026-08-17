@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 #
 # One-time setup for running the Cozmo dashboard on Linux -- written for
-# Endless OS (Debian-based), and should work unchanged on Ubuntu, Mint, or
-# other Debian-family distros using the same package names.
+# Endless OS, whose base system is READ-ONLY (it's built on OSTree, similar
+# to Fedora Silverblue), so this deliberately does NOT use apt/sudo for
+# anything -- system-level installs simply don't work there. Everything
+# below only touches this project's own folder and the venv inside it,
+# both in the user's own writable home directory, matching the approach
+# Endless's own community documents for getting Python working there.
+# Should also work unchanged on regular Ubuntu/Debian/Mint.
 #
 # Run this ONCE, right after cloning the repo, while this laptop still has
-# normal internet access. It installs system/Python packages and downloads
-# Cozmo's animation/sound assets, none of which will be reachable later
-# once this laptop switches its WiFi to Cozmo's own hotspot instead.
+# normal internet access. It installs Python packages and downloads Cozmo's
+# animation/sound assets plus a speech voice model, none of which will be
+# reachable later once this laptop switches its WiFi to Cozmo's own hotspot.
 #
 # Usage:
 #   chmod +x setup_linux.sh
@@ -17,12 +22,6 @@ set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_DIR"
-
-echo "== Installing system packages =="
-echo "(espeak: the offline text-to-speech voice pyttsx3 uses on Linux)"
-echo "(python3-venv/pip: needed to create the virtual environment below)"
-sudo apt update
-sudo apt install -y python3-venv python3-pip espeak
 
 echo "== Creating Python virtual environment (.venv) =="
 python3 -m venv .venv
@@ -36,6 +35,14 @@ if .venv/bin/pycozmo_resources.py status >/dev/null 2>&1; then
     echo "Already downloaded, skipping."
 else
     .venv/bin/pycozmo_resources.py download
+fi
+
+echo "== Downloading the offline text-to-speech voice (one-time, ~60MB) =="
+mkdir -p voices
+if [ -f "voices/en_US-lessac-medium.onnx" ]; then
+    echo "Already downloaded, skipping."
+else
+    .venv/bin/python -m piper.download_voices en_US-lessac-medium --download-dir voices
 fi
 
 echo "== Creating a double-click desktop icon for the hardware test =="

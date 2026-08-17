@@ -49,9 +49,15 @@ chmod +x setup_linux.sh
 ./setup_linux.sh
 ```
 
-Does the same setup as above, plus installs `espeak` (the offline TTS voice
-`pyttsx3` uses on Linux) and creates a double-click "Cozmo Hardware Test"
-icon on the Desktop.
+Endless OS's base system is **read-only** (it's built on OSTree, like Fedora
+Silverblue) -- `apt`/`sudo` package installs don't work there. This script
+deliberately never uses them: it only touches this project's own folder in
+your home directory, which is writable. It creates the same venv as above,
+downloads Cozmo's assets, downloads an offline speech voice for
+[piper-tts](https://github.com/OHF-Voice/piper1-gpl) (used instead of
+`pyttsx3` on Linux, since `pyttsx3`'s Linux backend needs a system-installed
+`espeak` binary -- piper is a plain pip package with everything bundled
+in), and creates a double-click "Cozmo Hardware Test" icon on the Desktop.
 
 ## Testing against real Cozmo
 

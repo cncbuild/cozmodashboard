@@ -11,7 +11,10 @@ standard-chunk==3.13.0
 # browser-based frontend (Stage 3).
 flask==3.1.3
 
-# Offline text-to-speech for "make Cozmo talk" -- uses Windows' built-in
-# SAPI voices, no internet or cloud account needed. On Linux this falls
-# back to espeak (see Stage 4 notes about moving to Endless OS).
-pyttsx3==2.99
+# Offline text-to-speech for "make Cozmo talk". Windows uses pyttsx3 (its
+# built-in SAPI voices); Linux uses piper-tts instead, since pyttsx3's Linux
+# backend needs a system-installed espeak binary, which requires apt/sudo --
+# not available on Endless OS's read-only base system. piper-tts is a plain
+# pip package with everything it needs bundled in. See tts.py.
+pyttsx3==2.99; sys_platform == "win32"
+piper-tts==1.7.0; sys_platform != "win32"
