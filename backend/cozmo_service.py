@@ -68,6 +68,15 @@ class CozmoService:
         self._watchdog_thread: Optional[threading.Thread] = None
         self._stop_watchdog = threading.Event()
 
+        # pycozmo sends commands over WiFi as fire-and-forget UDP packets --
+        # if the WiFi link drops (Cozmo wanders out of range, etc.), calls
+        # like drive_wheels()/play_anim() do NOT raise an error, they just
+        # silently go nowhere. The only reliable way to tell Cozmo is still
+        # actually there is that he continuously streams RobotState packets
+        # back to us many times per second while connected; we track when
+        # the last one arrived and treat a long gap as "connection lost".
+        self._last_robot_state_at = 0.0
+
     # ------------------------------------------------------------------
     # Connection lifecycle
     # ------------------------------------------------------------------
@@ -94,6 +103,12 @@ class CozmoService:
         client.enable_camera(enable=True, color=True)
         client.add_handler(pycozmo.EvtNewRawCameraImage, self._on_camera_image)
 
+        # See the comment on _last_robot_state_at above -- this is our own
+        # liveness tracking, since pycozmo doesn't detect a dropped WiFi
+        # link on its own.
+        client.add_handler(pycozmo.EvtRobotStateUpdated, self._on_robot_state_updated)
+        self._last_robot_state_at = time.monotonic()
+
         self._stop_watchdog.clear()
         self._watchdog_thread = threading.Thread(target=self._watchdog_loop, daemon=True)
         self._watchdog_thread.start()
@@ -118,6 +133,26 @@ class CozmoService:
     @property
     def connected(self) -> bool:
         return self._client is not None
+
+    def _on_robot_state_updated(self, cli) -> None:
+        del cli
+        self._last_robot_state_at = time.monotonic()
+
+    def seconds_since_last_response(self) -> float:
+        """How long since Cozmo last actually sent us anything. Rises
+        forever once the WiFi link drops -- there's no cap or timeout
+        built in, this just reports the raw elapsed time."""
+        if not self.connected:
+            return float("inf")
+        return time.monotonic() - self._last_robot_state_at
+
+    def is_alive(self, max_age: float = 1.0) -> bool:
+        """True if Cozmo has sent a status update within the last
+        `max_age` seconds. Cozmo streams these many times a second while
+        connected, so anything over ~1s almost certainly means the WiFi
+        link dropped -- NOT that a command silently failed for some other
+        reason."""
+        return self.seconds_since_last_response() < max_age
 
     # ------------------------------------------------------------------
     # Driving

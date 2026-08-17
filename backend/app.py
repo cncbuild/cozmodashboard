@@ -43,8 +43,18 @@ def _json_body() -> dict:
 
 
 def _require_connected():
+    """
+    Guards every action route. Checking `service.connected` alone isn't
+    enough -- pycozmo sends commands as fire-and-forget UDP, so if Cozmo's
+    WiFi link has silently dropped, `connected` stays True forever even
+    though nothing is actually reaching him. `is_alive()` catches that by
+    requiring a recent real response from Cozmo, not just an open socket.
+    """
     if not service.connected:
         return jsonify(error="Not connected to Cozmo."), 503
+    if not service.is_alive():
+        gap = round(service.seconds_since_last_response(), 1)
+        return jsonify(error=f"Cozmo hasn't responded in {gap}s -- WiFi link may have dropped."), 503
     return None
 
 
@@ -63,7 +73,19 @@ def index():
 
 @app.route("/api/status")
 def status():
-    return jsonify(connected=service.connected)
+    """
+    `connected` means the backend has a Cozmo client object at all.
+    `alive` means Cozmo has actually sent us something recently -- this is
+    the one that catches "WiFi dropped mid-session", which `connected`
+    alone will NOT catch (see the comment on CozmoService.is_alive).
+    """
+    return jsonify(
+        connected=service.connected,
+        alive=service.is_alive() if service.connected else False,
+        seconds_since_last_response=(
+            round(service.seconds_since_last_response(), 1) if service.connected else None
+        ),
+    )
 
 
 # ----------------------------------------------------------------------
