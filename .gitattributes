@@ -1,0 +1,4 @@
+# Shell scripts must keep Unix line endings even when checked out on
+# Windows, or they fail to run on Linux with a cryptic "bad interpreter"
+# error caused by a stray \r at the end of the shebang line.
+*.sh text eol=lf
