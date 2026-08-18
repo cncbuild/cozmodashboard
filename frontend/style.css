@@ -147,7 +147,7 @@ main {
   touch-action: none;
 }
 
-.dpad-btn:active { transform: translateY(4px); box-shadow: none; }
+.dpad-btn:active, .dpad-btn.pressed { transform: translateY(4px); box-shadow: none; }
 
 .dpad-up    { grid-column: 2; grid-row: 1; }
 .dpad-left  { grid-column: 1; grid-row: 2; }
@@ -186,7 +186,7 @@ main {
   touch-action: none;
 }
 
-.mini-btn:active { transform: translateY(4px); box-shadow: none; }
+.mini-btn:active, .mini-btn.pressed { transform: translateY(4px); box-shadow: none; }
 
 /* --- Talk box --- */
 

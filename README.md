@@ -29,7 +29,10 @@ drive Cozmo, play animations, make him talk, and see through his camera.
 - `frontend/` -- the browser UI: D-pad driving, head/lift, animation
   buttons (generated from `backend/animations.py`, not hardcoded here),
   a talk box, and a live camera view. `style.css` has the colors/sizes as
-  CSS variables at the top if you want to reskin it.
+  CSS variables at the top if you want to reskin it. Also keyboard-
+  controllable: arrow keys drive, numpad `2`/`0` tilt the head, numpad
+  `3`/`.` move the lift, and either Ctrl key is an instant stop -- see
+  `KEYBOARD_HOLD_KEYS` in `app.js` to remap.
 - `connection_test.py` -- the original minimal Stage 1 connection check
 
 ## Setup

@@ -119,41 +119,54 @@ const HOLD_ACTIONS = {
   "lift-down": { start: () => apiLift(-0.6), stop: () => apiLift(0) },
 };
 
-// Tracks every currently-held button, so a global "stop everything" (the
-// STOP button, or the window losing focus) can release all of them at once.
-const activeHolds = new Map(); // element -> intervalId
+// Tracks every currently-held action (by name, not by input device), so
+// on-screen buttons and keyboard keys mapped to the same action share one
+// underlying hold -- and so a global "stop everything" (the STOP button,
+// the window losing focus, or the Ctrl key) can release all of them at once.
+const activeHolds = new Map(); // actionName -> intervalId
 
-function releaseHold(el, actionName) {
-  const intervalId = activeHolds.get(el);
+// data-hold element for each action, if one exists, so keyboard presses can
+// show the same "pressed" look as actually touching/clicking the button.
+const actionElements = {};
+document.querySelectorAll("[data-hold]").forEach((el) => {
+  actionElements[el.dataset.hold] = el;
+});
+
+function beginHold(actionName) {
+  if (activeHolds.has(actionName)) return; // already held (e.g. key auto-repeat)
+  const action = HOLD_ACTIONS[actionName];
+  action.start();
+  activeHolds.set(actionName, setInterval(action.start, HOLD_REPEAT_MS));
+  if (actionElements[actionName]) actionElements[actionName].classList.add("pressed");
+}
+
+function endHold(actionName) {
+  const intervalId = activeHolds.get(actionName);
   if (intervalId === undefined) return;
   clearInterval(intervalId);
-  activeHolds.delete(el);
+  activeHolds.delete(actionName);
   HOLD_ACTIONS[actionName].stop();
+  if (actionElements[actionName]) actionElements[actionName].classList.remove("pressed");
 }
 
 function bindHold(el, actionName) {
-  const action = HOLD_ACTIONS[actionName];
-
   el.addEventListener("pointerdown", (e) => {
     e.preventDefault();
-    if (activeHolds.has(el)) return;
     // Keeps receiving pointerup/pointercancel from this element even if
     // a finger slides off it while still touching the screen.
     el.setPointerCapture(e.pointerId);
-    action.start();
-    activeHolds.set(el, setInterval(action.start, HOLD_REPEAT_MS));
+    beginHold(actionName);
   });
 
-  const release = () => releaseHold(el, actionName);
+  const release = () => endHold(actionName);
   el.addEventListener("pointerup", release);
   el.addEventListener("pointercancel", release);
   el.addEventListener("pointerleave", release);
 }
 
 function stopEverything() {
-  for (const [el] of activeHolds) {
-    const actionName = el.dataset.hold;
-    releaseHold(el, actionName);
+  for (const actionName of [...activeHolds.keys()]) {
+    endHold(actionName);
   }
   // Explicit stop regardless of held-button state, for the STOP button.
   apiPost("/api/drive/stop");
@@ -173,6 +186,50 @@ document.getElementById("stop-btn").addEventListener("click", stopEverything);
 window.addEventListener("blur", stopEverything);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopEverything();
+});
+
+// ---------------------------------------------------------------------
+// Keyboard controls -- same hold/release behavior as the on-screen
+// buttons, mapped by physical key position (event.code) so this keeps
+// working regardless of NumLock state or keyboard layout.
+// ---------------------------------------------------------------------
+
+const KEYBOARD_HOLD_KEYS = {
+  ArrowUp: "drive-forward",
+  ArrowDown: "drive-back",
+  ArrowLeft: "drive-left",
+  ArrowRight: "drive-right",
+  Numpad2: "head-up",
+  Numpad0: "head-down",
+  Numpad3: "lift-up",
+  NumpadDecimal: "lift-down",
+};
+
+const STOP_KEYS = new Set(["ControlLeft", "ControlRight"]);
+
+function isTypingInField() {
+  const el = document.activeElement;
+  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA");
+}
+
+document.addEventListener("keydown", (e) => {
+  if (isTypingInField()) return; // don't hijack arrow keys while typing a message
+
+  if (STOP_KEYS.has(e.code)) {
+    e.preventDefault();
+    stopEverything();
+    return;
+  }
+
+  const actionName = KEYBOARD_HOLD_KEYS[e.code];
+  if (!actionName) return;
+  e.preventDefault(); // stop arrow keys from scrolling the page
+  beginHold(actionName);
+});
+
+document.addEventListener("keyup", (e) => {
+  const actionName = KEYBOARD_HOLD_KEYS[e.code];
+  if (actionName) endHold(actionName);
 });
 
 // ---------------------------------------------------------------------
