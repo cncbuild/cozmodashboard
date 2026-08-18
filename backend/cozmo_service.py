@@ -17,6 +17,7 @@ from typing import Optional
 import pycozmo
 
 from animations import ANIMATIONS
+from face_detection import detect_faces, draw_face_boxes, warm_up as warm_up_face_detection
 from tts import synthesize_speech_wav
 
 logger = logging.getLogger("cozmo_service")
@@ -47,6 +48,14 @@ MAX_LIFT_HEIGHT = pycozmo.MAX_LIFT_HEIGHT.mm
 # picks a solidly audible level without necessarily being max volume.
 STARTUP_VOLUME = 45000
 
+# Minimum time (seconds) between face-detection runs. Cozmo can send
+# camera frames faster than this, but running detection on every single
+# one is unnecessary CPU load for something that doesn't change that
+# fast -- a face doesn't appear/disappear in 33ms. Detected face boxes
+# stay drawn on every streamed frame in between runs, so video stays
+# smooth even though detection itself runs less often.
+FACE_DETECTION_INTERVAL = 0.2
+
 
 def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
@@ -72,6 +81,13 @@ class CozmoService:
         # efficiently for the next frame instead of busy-polling.
         self._latest_jpeg: Optional[bytes] = None
         self._frame_condition = threading.Condition()
+
+        # Most recent face-detection result -- (x, y, w, h) boxes -- and
+        # when that detection last ran, for the FACE_DETECTION_INTERVAL
+        # throttle. Updated from the same camera-frame callback as
+        # _latest_jpeg above, so no separate lock is needed for these.
+        self._latest_faces: list = []
+        self._last_face_detection_at = 0.0
 
         self._watchdog_thread: Optional[threading.Thread] = None
         self._stop_watchdog = threading.Event()
@@ -108,6 +124,11 @@ class CozmoService:
         # Without this, Cozmo keeps whatever volume he was last left at,
         # which can be inaudibly low -- see the comment on STARTUP_VOLUME.
         client.set_volume(STARTUP_VOLUME)
+
+        # Pays face detection's one-time ~0.5s warm-up cost now rather
+        # than as a delay on the first real camera frame -- see the
+        # comment on warm_up() for why that cost exists at all.
+        warm_up_face_detection()
 
         # Turn on the camera and register a handler that keeps only the
         # single most recent frame -- we don't need a history, just
@@ -260,6 +281,15 @@ class CozmoService:
 
     def _on_camera_image(self, cli, image) -> None:
         del cli
+
+        now = time.monotonic()
+        if now - self._last_face_detection_at >= FACE_DETECTION_INTERVAL:
+            self._latest_faces = detect_faces(image)
+            self._last_face_detection_at = now
+
+        if self._latest_faces:
+            image = draw_face_boxes(image, self._latest_faces)
+
         buf = io.BytesIO()
         image.save(buf, format="JPEG", quality=70)
         with self._frame_condition:
@@ -271,6 +301,10 @@ class CozmoService:
         with self._frame_condition:
             self._frame_condition.wait(timeout=timeout)
             return self._latest_jpeg
+
+    def get_face_count(self) -> int:
+        """Number of faces in the most recent camera frame."""
+        return len(self._latest_faces)
 
     # ------------------------------------------------------------------
     # Safety watchdog -- auto-stops motors if "held button" commands go stale

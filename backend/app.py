@@ -247,6 +247,23 @@ def camera_stream():
 
 
 # ----------------------------------------------------------------------
+# Face detection
+# ----------------------------------------------------------------------
+
+@app.route("/api/face-detection")
+def face_detection_status():
+    """
+    Detected face boxes are already drawn directly onto the camera stream
+    above (see CozmoService._on_camera_image), so this is only for a
+    small text status the frontend can show without staring at the video
+    -- not gated behind _require_connected() since it's read-only status,
+    not an action: just reports zero faces if not connected.
+    """
+    count = service.get_face_count() if service.connected else 0
+    return jsonify(face_detected=count > 0, face_count=count)
+
+
+# ----------------------------------------------------------------------
 # Entry point
 # ----------------------------------------------------------------------
 

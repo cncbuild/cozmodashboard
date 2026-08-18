@@ -3,7 +3,8 @@
 A self-contained app for controlling an Anki Cozmo robot directly over WiFi,
 using [pycozmo](https://github.com/zayfod/pycozmo) instead of Anki's
 (now-shut-down) cloud service. Built for a kid to run on a dedicated laptop:
-drive Cozmo, play animations, make him talk, and see through his camera.
+drive Cozmo, play animations, make him talk, see through his camera, and
+have him notice faces.
 
 ## Status
 
@@ -14,8 +15,14 @@ drive Cozmo, play animations, make him talk, and see through his camera.
   a simulated Cozmo connection; not yet tested against real hardware
 - **Stage 4** (one-click kiosk launcher): done. Windows version verified
   end-to-end here (readiness detection, Chrome app-mode window, cleanup on
-  close/timeout); Linux version written the same way but not yet run on
-  the real Endless laptop
+  close/timeout); Linux version confirmed launching fullscreen correctly
+  on the real Endless laptop -- cleanup-on-close specifically hasn't been
+  re-verified since the terminal-logging fix (see `backend.log`)
+- **Face detection** (extra, not part of the original 4 stages): done,
+  verified end-to-end against a real photo (detection accuracy, box
+  placement, the live API endpoint, and the frontend indicator) -- not yet
+  tried against Cozmo's actual camera. Recognizing/naming specific people
+  is a deliberate, separate next step -- see `backend/face_detection.py`
 
 ## How it's structured
 
@@ -25,6 +32,13 @@ drive Cozmo, play animations, make him talk, and see through his camera.
     to add/rename animations, no code changes needed elsewhere)
   - `tts.py` -- offline text-to-speech, normalized to the audio format
     Cozmo's speaker requires, plus a tunable "robot voice" effect
+  - `face_detection.py` -- detects faces in each camera frame (not who
+    they are, just that one's there); boxes are drawn directly onto the
+    camera stream, see the module docstring for why it's built this way
+  - `models/haarcascade_frontalface_default.xml` -- the face detector's
+    model file, committed directly rather than relying on it being
+    bundled with opencv-python (that bundling isn't consistent across
+    OpenCV versions)
   - `app.py` -- the HTTP API (binds to `127.0.0.1` only)
   - `manual_test.py` -- standalone hardware test, no browser/frontend
     needed (see "Testing against real Cozmo" below)

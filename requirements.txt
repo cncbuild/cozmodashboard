@@ -18,3 +18,12 @@ flask==3.1.3
 # pip package with everything it needs bundled in. See tts.py.
 pyttsx3==2.99; sys_platform == "win32"
 piper-tts==1.7.0; sys_platform != "win32"
+
+# Face detection on Cozmo's camera feed. Pinned to the 4.x line
+# deliberately -- OpenCV 5.0 removed CascadeClassifier (the classic face
+# detector used in face_detection.py) entirely in favor of a newer
+# DNN-based one that needs its own separately-downloaded model file. 4.x
+# is simpler, needs no extra download beyond this package, and is a much
+# more battle-tested codepath. "headless" build avoids GUI library
+# dependencies (Qt etc.) we don't need and that complicate installs.
+opencv-python-headless==4.10.0.84

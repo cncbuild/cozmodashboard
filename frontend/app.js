@@ -316,8 +316,39 @@ setInterval(() => {
 }, 5000);
 
 // ---------------------------------------------------------------------
+// Face detection status -- the actual face BOXES are already drawn
+// directly onto the camera stream by the backend (see
+// CozmoService._on_camera_image in cozmo_service.py); this is just a
+// small text readout so it's obvious at a glance without staring at the
+// video. Detection itself only looks for "is a face there", not whose --
+// see face_detection.py for why recognizing specific people is a
+// deliberately separate, later step.
+// ---------------------------------------------------------------------
+
+async function pollFaceDetection() {
+  try {
+    const res = await fetch("/api/face-detection");
+    const data = await res.json();
+    const el = document.getElementById("face-status");
+    if (data.face_count === 0) {
+      el.textContent = "Looking for faces...";
+    } else if (data.face_count === 1) {
+      el.textContent = "👀 I see a face!";
+    } else {
+      el.textContent = `👀 I see ${data.face_count} faces!`;
+    }
+  } catch {
+    // Connection errors already surface elsewhere (status badge, camera
+    // placeholder) -- no need to duplicate that here.
+  } finally {
+    setTimeout(pollFaceDetection, 1000);
+  }
+}
+
+// ---------------------------------------------------------------------
 // Go
 // ---------------------------------------------------------------------
 
 pollStatus();
 loadAnimations();
+pollFaceDetection();

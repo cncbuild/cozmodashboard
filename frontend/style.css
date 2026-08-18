@@ -125,6 +125,13 @@ main {
   font-size: 1.1rem;
 }
 
+.face-status {
+  margin: 10px 0 0 0;
+  text-align: center;
+  font-weight: bold;
+  color: var(--color-sky-dark);
+}
+
 /* --- D-pad --- */
 
 .dpad {
