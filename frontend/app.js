@@ -385,6 +385,16 @@ document.getElementById("voice-reset-btn").addEventListener("click", async () =>
   loadVoiceSettings();
 });
 
+// Collapsed by default (see the "collapsed" class in index.html) --
+// this is a tuning panel, not something that needs to be open every
+// time the app starts.
+document.getElementById("voice-lab-toggle-btn").addEventListener("click", () => {
+  const content = document.getElementById("voice-lab-content");
+  const btn = document.getElementById("voice-lab-toggle-btn");
+  const collapsed = content.classList.toggle("collapsed");
+  btn.textContent = collapsed ? "Show" : "Hide";
+});
+
 // ---------------------------------------------------------------------
 // Camera stream -- browsers natively render a multipart/x-mixed-replace
 // MJPEG stream in a plain <img>. If it drops (Cozmo out of range, backend

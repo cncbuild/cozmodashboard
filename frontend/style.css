@@ -300,6 +300,34 @@ main {
 
 /* --- Voice Lab --- */
 
+.voice-lab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.voice-lab-header h2 {
+  margin: 0;
+}
+
+.voice-lab-toggle-btn {
+  border: none;
+  border-radius: 999px;
+  background: var(--color-sky-dark);
+  color: white;
+  font-weight: bold;
+  padding: 8px 20px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+
+.voice-lab-toggle-btn:active { transform: translateY(2px); box-shadow: none; }
+
+.voice-lab-content.collapsed {
+  display: none;
+}
+
 .voice-lab-toolbar {
   display: flex;
   align-items: center;

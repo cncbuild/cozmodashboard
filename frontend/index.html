@@ -64,19 +64,26 @@
     </form>
   </section>
 
-  <!-- Voice Lab: live-adjustable robot voice effect. Sliders below are
-       generated entirely from /api/voice-settings -- see app.js -->
+  <!-- Voice Lab: live-adjustable robot voice effect. Collapsed by
+       default -- this is a tuning panel, not something a kid needs to
+       see every time. Sliders are generated entirely from
+       /api/voice-settings -- see app.js -->
   <section class="panel voice-lab-panel">
-    <h2>🎚️ Voice Lab</h2>
-    <div class="voice-lab-toolbar">
-      <label class="voice-enable-toggle">
-        <input type="checkbox" id="voice-enabled-toggle" checked>
-        Robot voice effect on
-      </label>
-      <button id="voice-test-btn" type="button">🔊 Test Voice</button>
-      <button id="voice-reset-btn" type="button">↺ Reset to Default</button>
+    <div class="voice-lab-header">
+      <h2>🎚️ Voice Lab</h2>
+      <button id="voice-lab-toggle-btn" type="button" class="voice-lab-toggle-btn">Show</button>
     </div>
-    <div id="voice-lab-groups">Loading voice settings...</div>
+    <div id="voice-lab-content" class="voice-lab-content collapsed">
+      <div class="voice-lab-toolbar">
+        <label class="voice-enable-toggle">
+          <input type="checkbox" id="voice-enabled-toggle" checked>
+          Robot voice effect on
+        </label>
+        <button id="voice-test-btn" type="button">🔊 Test Voice</button>
+        <button id="voice-reset-btn" type="button">↺ Reset to Default</button>
+      </div>
+      <div id="voice-lab-groups">Loading voice settings...</div>
+    </div>
   </section>
 
   <!-- Face enrollment: teach Cozmo a name for whoever's in frame -->
