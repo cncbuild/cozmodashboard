@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Cozmo Control Center</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top-bar">
+  <h1>🤖 Cozmo Control Center</h1>
+  <div id="status-badge" class="status-badge status-unknown">
+    <span class="status-dot"></span>
+    <span id="status-text">Connecting...</span>
+  </div>
+</header>
+
+<main>
+  <!-- Camera + driving/head/lift controls side by side -->
+  <section class="top-section">
+
+    <div class="panel camera-panel">
+      <h2>📷 Cozmo's Eyes</h2>
+      <div class="camera-frame">
+        <img id="camera-stream" alt="Cozmo's camera view">
+        <div id="camera-placeholder" class="camera-placeholder">Waiting for camera...</div>
+      </div>
+    </div>
+
+    <div class="panel controls-panel">
+      <h2>🕹️ Drive</h2>
+      <div class="dpad">
+        <button class="dpad-btn dpad-up"    data-hold="drive-forward" aria-label="Forward">▲</button>
+        <button class="dpad-btn dpad-left"  data-hold="drive-left"    aria-label="Turn left">◀</button>
+        <button class="dpad-btn dpad-stop"  id="stop-btn"             aria-label="Stop">■</button>
+        <button class="dpad-btn dpad-right" data-hold="drive-right"   aria-label="Turn right">▶</button>
+        <button class="dpad-btn dpad-down"  data-hold="drive-back"    aria-label="Backward">▼</button>
+      </div>
+
+      <div class="mini-controls">
+        <div class="mini-control-group">
+          <span class="mini-label">Head</span>
+          <button class="mini-btn" data-hold="head-up" aria-label="Head up">▲</button>
+          <button class="mini-btn" data-hold="head-down" aria-label="Head down">▼</button>
+        </div>
+        <div class="mini-control-group">
+          <span class="mini-label">Lift</span>
+          <button class="mini-btn" data-hold="lift-up" aria-label="Lift up">▲</button>
+          <button class="mini-btn" data-hold="lift-down" aria-label="Lift down">▼</button>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- Talk box -->
+  <section class="panel talk-panel">
+    <h2>💬 Make Cozmo Talk</h2>
+    <form id="talk-form">
+      <input id="talk-input" type="text" maxlength="500" placeholder="Type something for Cozmo to say..." autocomplete="off">
+      <button type="submit">Say it!</button>
+    </form>
+  </section>
+
+  <!-- Animation buttons, grouped by category -->
+  <section class="panel animations-panel">
+    <h2>✨ Animations</h2>
+    <div id="animation-groups">Loading animations...</div>
+  </section>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -10,7 +10,8 @@ drive Cozmo, play animations, make him talk, and see through his camera.
 - **Stage 1** (project setup + connection test): done
 - **Stage 2** (Flask backend: driving, head/lift, animations, TTS, camera):
   done, verified against real hardware
-- **Stage 3** (kid-friendly frontend UI): not started
+- **Stage 3** (kid-friendly frontend UI): done, verified in-browser against
+  a simulated Cozmo connection; not yet tested against real hardware
 - **Stage 4** (one-click kiosk launcher): not started -- target OS is
   Endless OS on a dedicated laptop
 
@@ -21,11 +22,14 @@ drive Cozmo, play animations, make him talk, and see through his camera.
   - `animations.py` -- curated, kid-friendly animation buttons (edit this
     to add/rename animations, no code changes needed elsewhere)
   - `tts.py` -- offline text-to-speech, normalized to the audio format
-    Cozmo's speaker requires
+    Cozmo's speaker requires, plus a tunable "robot voice" effect
   - `app.py` -- the HTTP API (binds to `127.0.0.1` only)
   - `manual_test.py` -- standalone hardware test, no browser/frontend
     needed (see "Testing against real Cozmo" below)
-- `frontend/` -- the browser UI (Stage 3, not built yet)
+- `frontend/` -- the browser UI: D-pad driving, head/lift, animation
+  buttons (generated from `backend/animations.py`, not hardcoded here),
+  a talk box, and a live camera view. `style.css` has the colors/sizes as
+  CSS variables at the top if you want to reskin it.
 - `connection_test.py` -- the original minimal Stage 1 connection check
 
 ## Setup
@@ -78,7 +82,7 @@ error on its own).
    every step was confirmed or whether the WiFi link dropped partway
    through.
 
-## Running the full backend (once Stage 3 exists)
+## Running the full app
 
 ```
 # Windows

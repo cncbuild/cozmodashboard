@@ -1,0 +1,288 @@
+/* Playful, big-button styling for a kid using touch or a mouse.
+   Colors/sizes are plain CSS variables at the top -- tweak these first
+   if you want to reskin without hunting through every rule. */
+
+:root {
+  --color-bg: #eaf6ff;
+  --color-sky: #4fc3f7;
+  --color-sky-dark: #29a3e0;
+  --color-orange: #ffa726;
+  --color-orange-dark: #f57c00;
+  --color-green: #66bb6a;
+  --color-green-dark: #43a047;
+  --color-red: #ef5350;
+  --color-red-dark: #d32f2f;
+  --color-card: #ffffff;
+  --color-text: #2b3a42;
+  --radius-lg: 22px;
+  --radius-md: 16px;
+  --shadow: 0 6px 0 rgba(0, 0, 0, 0.12);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Comic Sans MS", "Trebuchet MS", sans-serif;
+  background: linear-gradient(180deg, var(--color-bg), #ffffff 60%);
+  color: var(--color-text);
+  min-height: 100vh;
+  /* Prevent accidental text selection / long-press menus while tapping
+     controls rapidly -- this is a touch app, not a document. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--color-sky);
+  color: white;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+}
+
+.top-bar h1 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.25);
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-weight: bold;
+  font-size: 0.95rem;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #bbb;
+  transition: background-color 0.2s ease;
+}
+
+.status-alive .status-dot { background: #4caf50; }
+.status-stale .status-dot { background: #ffca28; }
+.status-down .status-dot { background: #e53935; }
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panel {
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  padding: 18px 22px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.panel h2 {
+  margin: 0 0 14px 0;
+  font-size: 1.2rem;
+}
+
+.top-section {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.camera-panel { flex: 1 1 440px; }
+.controls-panel { flex: 1 1 320px; }
+
+.camera-frame {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: #1a1a1a;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.camera-placeholder {
+  position: absolute;
+  color: #ccc;
+  font-size: 1.1rem;
+}
+
+/* --- D-pad --- */
+
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 78px);
+  grid-template-rows: repeat(3, 78px);
+  gap: 10px;
+  justify-content: center;
+  margin: 10px auto 24px auto;
+}
+
+.dpad-btn {
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 1.8rem;
+  color: white;
+  background: var(--color-sky-dark);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.dpad-btn:active { transform: translateY(4px); box-shadow: none; }
+
+.dpad-up    { grid-column: 2; grid-row: 1; }
+.dpad-left  { grid-column: 1; grid-row: 2; }
+.dpad-stop  { grid-column: 2; grid-row: 2; background: var(--color-red); font-size: 1.4rem; }
+.dpad-right { grid-column: 3; grid-row: 2; }
+.dpad-down  { grid-column: 2; grid-row: 3; }
+
+.mini-controls {
+  display: flex;
+  justify-content: center;
+  gap: 36px;
+}
+
+.mini-control-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.mini-label {
+  font-weight: bold;
+  font-size: 0.95rem;
+}
+
+.mini-btn {
+  width: 64px;
+  height: 54px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-orange-dark);
+  color: white;
+  font-size: 1.4rem;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.mini-btn:active { transform: translateY(4px); box-shadow: none; }
+
+/* --- Talk box --- */
+
+#talk-form {
+  display: flex;
+  gap: 12px;
+}
+
+#talk-input {
+  flex: 1;
+  font-size: 1.1rem;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 2px solid #cfe8f7;
+  outline: none;
+}
+
+#talk-input:focus { border-color: var(--color-sky-dark); }
+
+#talk-form button {
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-green);
+  color: white;
+  font-size: 1.1rem;
+  font-weight: bold;
+  padding: 0 26px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+#talk-form button:active { transform: translateY(4px); box-shadow: none; }
+
+/* --- Animation buttons --- */
+
+.anim-category { margin-bottom: 18px; }
+.anim-category:last-child { margin-bottom: 0; }
+
+.anim-category h3 {
+  margin: 0 0 10px 0;
+  font-size: 1rem;
+  color: #607d8b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.anim-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 12px;
+}
+
+.anim-btn {
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-orange);
+  color: white;
+  padding: 14px 8px;
+  font-size: 0.95rem;
+  font-weight: bold;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.anim-btn:active { transform: translateY(4px); box-shadow: none; }
+.anim-btn .emoji { font-size: 1.8rem; }
+
+/* --- Toast for errors / gentle status messages --- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translate(-50%, 20px);
+  background: var(--color-red-dark);
+  color: white;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-weight: bold;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  max-width: 90vw;
+  text-align: center;
+}
+
+.toast.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (max-width: 640px) {
+  .top-bar h1 { font-size: 1.2rem; }
+  .dpad { grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(3, 64px); }
+}
