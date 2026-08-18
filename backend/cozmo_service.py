@@ -57,6 +57,16 @@ STARTUP_VOLUME = 45000
 # smooth even though detection itself runs less often.
 FACE_DETECTION_INTERVAL = 0.2
 
+# What Cozmo does when he recognizes someone: plays this animation (a key
+# from animations.py) and says GREETING_TEMPLATE with their name filled
+# in. Only re-greets the same person after GREETING_COOLDOWN seconds --
+# without that, he'd repeat the greeting every FACE_DETECTION_INTERVAL
+# for as long as they stood there, which would be more annoying than
+# charming.
+GREETING_ANIMATION_KEY = "happy"
+GREETING_TEMPLATE = "{name}! It's {name}! Hi, {name}."
+GREETING_COOLDOWN = 120
+
 
 def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
@@ -97,6 +107,15 @@ class CozmoService:
         # drawn into _latest_jpeg would end up baked into any crop taken
         # from that instead.
         self._latest_raw_image = None
+
+        # When each recognized person was last greeted (see
+        # GREETING_COOLDOWN) and whether a greeting reaction is currently
+        # playing out -- both only ever touched from the camera-frame
+        # callback thread, so no lock needed. The in-progress flag stops
+        # two people recognized in the same frame from triggering
+        # overlapping animations/speech that would talk over each other.
+        self._last_greeted_at: dict = {}
+        self._greeting_in_progress = False
 
         self._watchdog_thread: Optional[threading.Thread] = None
         self._stop_watchdog = threading.Event()
@@ -300,6 +319,7 @@ class CozmoService:
                 known_faces.recognize(image, box) for box in self._latest_faces
             ]
             self._last_face_detection_at = now
+            self._maybe_greet(now)
 
         display_image = image
         if self._latest_faces:
@@ -325,6 +345,44 @@ class CozmoService:
         """Name for each currently-detected face, in the same order as
         the boxes -- None for a face nobody enrolled matches."""
         return list(self._latest_face_names)
+
+    def _maybe_greet(self, now: float) -> None:
+        """Starts a greeting reaction for the first recognized face that's
+        due one (see GREETING_COOLDOWN), if Cozmo isn't already mid-
+        reaction to someone. Called right after each fresh detection
+        pass in _on_camera_image -- deliberately only ever greets one
+        person per call, so two people recognized in the same frame
+        don't trigger overlapping animations/speech."""
+        if self._greeting_in_progress:
+            return
+        for name in self._latest_face_names:
+            if not name:
+                continue
+            last_greeted = self._last_greeted_at.get(name)
+            if last_greeted is not None and now - last_greeted < GREETING_COOLDOWN:
+                continue
+            self._last_greeted_at[name] = now
+            self._react_to_known_face(name)
+            return
+
+    def _react_to_known_face(self, name: str) -> None:
+        """Plays the greeting animation and says hello -- in a background
+        thread, since play_animation() then say() takes a few seconds
+        and this is called from the camera-frame callback, which must
+        stay fast: blocking it would stall Cozmo's own connection
+        handling (RobotState updates, etc.), not just the video feed."""
+        self._greeting_in_progress = True
+
+        def _react():
+            try:
+                self.play_animation(GREETING_ANIMATION_KEY)
+                self.say(GREETING_TEMPLATE.format(name=name))
+            except Exception:
+                logger.exception("Error during greeting reaction for %r", name)
+            finally:
+                self._greeting_in_progress = False
+
+        threading.Thread(target=_react, daemon=True).start()
 
     def enroll_face(self, name: str) -> Optional[str]:
         """

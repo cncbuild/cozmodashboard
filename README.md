@@ -24,6 +24,12 @@ have him notice and recognize faces.
   the frontend indicator/enrollment UI) -- not yet tried against Cozmo's
   actual camera. See `backend/face_detection.py` and
   `backend/known_faces.py`
+- **Greeting reaction**: when Cozmo recognizes someone, he plays a
+  greeting animation and says their name (e.g. "Rob! It's Rob! Hi,
+  Rob.") -- at most once per person every couple minutes, not every time
+  they're still in frame. Tunable via `GREETING_*` constants in
+  `cozmo_service.py`. Verified the trigger-once/cooldown/no-overlap
+  behavior directly; not yet heard on real Cozmo
 
 ## How it's structured
 
