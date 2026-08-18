@@ -51,16 +51,32 @@ else
     .venv/bin/python -m piper.download_voices en_US-lessac-medium --download-dir voices
 fi
 
-echo "== Adding 'Cozmo Hardware Test' to the app grid =="
+echo "== Adding app-grid entries =="
 # Endless OS's shell is an app-grid launcher (like the one you used to find
 # Terminal/Settings), not a classic desktop with icons -- files placed in
 # ~/Desktop generally aren't shown there at all. ~/.local/share/applications
 # is the standard place any Linux desktop looks for user-installed apps, so
-# this makes the test searchable/clickable the same way Terminal already is.
+# this makes these searchable/clickable the same way Terminal already is.
 APPS_DIR="$HOME/.local/share/applications"
 mkdir -p "$APPS_DIR"
-LAUNCHER="$APPS_DIR/cozmo-hardware-test.desktop"
-cat > "$LAUNCHER" <<EOF
+
+chmod +x launch_linux.sh
+
+PLAY_LAUNCHER="$APPS_DIR/cozmo-play.desktop"
+cat > "$PLAY_LAUNCHER" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Play with Cozmo
+Comment=Start the Cozmo dashboard
+Exec=bash "$PROJECT_DIR/launch_linux.sh"
+Icon=applications-games
+Terminal=true
+Categories=Game;
+EOF
+chmod +x "$PLAY_LAUNCHER"
+
+TEST_LAUNCHER="$APPS_DIR/cozmo-hardware-test.desktop"
+cat > "$TEST_LAUNCHER" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Cozmo Hardware Test
@@ -70,11 +86,13 @@ Icon=utilities-terminal
 Terminal=true
 Categories=Utility;
 EOF
-chmod +x "$LAUNCHER"
+chmod +x "$TEST_LAUNCHER"
 
 echo ""
 echo "Setup complete!"
 echo ""
-echo "To use it: join this laptop's WiFi to Cozmo's hotspot, then open the"
-echo "app grid and search for 'Cozmo Hardware Test' (same way you found"
-echo "Terminal/Settings earlier), and click it."
+echo "Two things were added to the app grid:"
+echo "  - 'Play with Cozmo' -- the actual app: join Cozmo's WiFi, open the"
+echo "    app grid, search for it, and click it. Opens fullscreen, no"
+echo "    address bar/tabs, and closing the window stops everything cleanly."
+echo "  - 'Cozmo Hardware Test' -- for troubleshooting, not everyday use."

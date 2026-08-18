@@ -12,8 +12,10 @@ drive Cozmo, play animations, make him talk, and see through his camera.
   done, verified against real hardware
 - **Stage 3** (kid-friendly frontend UI): done, verified in-browser against
   a simulated Cozmo connection; not yet tested against real hardware
-- **Stage 4** (one-click kiosk launcher): not started -- target OS is
-  Endless OS on a dedicated laptop
+- **Stage 4** (one-click kiosk launcher): done. Windows version verified
+  end-to-end here (readiness detection, Chrome app-mode window, cleanup on
+  close/timeout); Linux version written the same way but not yet run on
+  the real Endless laptop
 
 ## How it's structured
 
@@ -34,6 +36,8 @@ drive Cozmo, play animations, make him talk, and see through his camera.
   `3`/`.` move the lift, and either Ctrl key is an instant stop -- see
   `KEYBOARD_HOLD_KEYS` in `app.js` to remap.
 - `connection_test.py` -- the original minimal Stage 1 connection check
+- `launch_linux.sh` / `launch_windows.ps1` + `Play with Cozmo.bat` -- the
+  one-click launchers (see "Playing with Cozmo" below)
 
 ## Setup
 
@@ -64,8 +68,9 @@ downloads Cozmo's assets, downloads an offline speech voice for
 [piper-tts](https://github.com/OHF-Voice/piper1-gpl) (used instead of
 `pyttsx3` on Linux, since `pyttsx3`'s Linux backend needs a system-installed
 `espeak` binary -- piper is a plain pip package with everything bundled
-in), and adds a "Cozmo Hardware Test" entry to the app grid (searchable the
-same way as Terminal/Settings -- Endless OS doesn't show desktop icons).
+in), and adds two entries to the app grid (searchable the same way as
+Terminal/Settings -- Endless OS doesn't show desktop icons): "Play with
+Cozmo" (the actual app) and "Cozmo Hardware Test" (troubleshooting).
 
 ## Testing against real Cozmo
 
@@ -85,7 +90,25 @@ error on its own).
    every step was confirmed or whether the WiFi link dropped partway
    through.
 
-## Running the full app
+## Playing with Cozmo (the one-click launcher)
+
+Join Cozmo's WiFi, then:
+- Windows: double-click `Play with Cozmo.bat`.
+- Linux: search the app grid for "Play with Cozmo" and click it.
+
+This starts the backend, waits until it's actually connected to Cozmo,
+then opens the dashboard in a Chromium "app" window -- fullscreen, no
+tabs/address bar. Closing that window automatically stops the backend
+too, so there's nothing left running in the background afterward (see
+`launch_linux.sh` / `launch_windows.ps1` for exactly how). If Cozmo isn't
+reachable, it says so plainly instead of leaving a blank/frozen window.
+
+On Linux specifically, it picks whichever of `chromium-browser`,
+`chromium`, `google-chrome-stable`, or `google-chrome` is actually
+installed, rather than assuming one -- Endless OS ships Chromium by
+default, but this doesn't hardcode that.
+
+## Running the backend directly (no launcher, e.g. for development)
 
 ```
 # Windows
@@ -97,3 +120,6 @@ error on its own).
 
 Serves on `http://127.0.0.1:5000` -- deliberately not reachable from other
 devices, since this is meant to run and be used entirely on one laptop.
+Stop it with Ctrl+C in that terminal (or `pkill -f backend/app.py` /
+`Get-Process python | Stop-Process` if you've lost track of which window
+it's running in).
