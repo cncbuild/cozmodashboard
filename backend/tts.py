@@ -59,10 +59,9 @@ ROBOT_VOICE_ENABLED = True
 # How much faster + higher-pitched the voice becomes (1.0 = unchanged,
 # below 1.0 = slower/deeper). Speed and pitch move together here -- like
 # playing a record at the wrong speed -- rather than shifting pitch alone.
-# WALL-E's voice is low and a bit gravelly/deliberate, not a fast chipmunk
-# voice, hence < 1.0 here (this was 1.25 -- faster/higher -- when this
-# was tuned for a small-Cozmo character instead).
-ROBOT_VOICE_SPEED = 0.82
+# Pulled back close to neutral after 0.82 came out "way too deep" --
+# the nasal quality below does more of the character work than pitch does.
+ROBOT_VOICE_SPEED = 0.95
 
 # Ring modulation: multiplies the voice by a low-frequency tone, which adds
 # a buzzy, textured "robotic" quality on top. Lower MOD_FREQ_HZ leans more
@@ -70,6 +69,17 @@ ROBOT_VOICE_SPEED = 0.82
 # more pronounced/less intelligible.
 ROBOT_VOICE_MOD_FREQ_HZ = 25.0
 ROBOT_VOICE_MOD_DEPTH = 0.45
+
+# Nasal quality: boosts the frequency band where nasal resonance actually
+# lives (not a pitch thing -- a real voice's formants, i.e. which
+# frequencies are loudest, is what makes a voice sound "nasal" vs not) and
+# cuts bass, since a nasal voice is thin on low end. NASAL_BOOST_GAIN /
+# BASS_CUT_GAIN are straight multipliers (1.0 = no change, <1.0 = quieter).
+NASAL_BOOST_LOW_HZ = 900.0
+NASAL_BOOST_HIGH_HZ = 2400.0
+NASAL_BOOST_GAIN = 2.2
+BASS_CUT_HZ = 350.0
+BASS_CUT_GAIN = 0.4
 # -----------------------------------------------------------------------
 
 
@@ -114,21 +124,39 @@ def _resample(samples: np.ndarray, orig_rate: int, target_rate: int) -> np.ndarr
     return np.interp(new_positions, old_positions, samples)
 
 
+def _apply_nasal_eq(samples: np.ndarray, framerate: int) -> np.ndarray:
+    """Boosts the nasal-formant frequency band and cuts bass -- see the
+    NASAL_*/BASS_* constants above. This is a whole-buffer FFT filter
+    (fine here since we process a full recorded phrase at once, not a
+    live stream) rather than a real-time-style filter, so it's just:
+    transform, scale each frequency bin, transform back."""
+    spectrum = np.fft.rfft(samples)
+    freqs = np.fft.rfftfreq(len(samples), d=1.0 / framerate)
+
+    gain = np.ones_like(freqs)
+    gain[(freqs >= NASAL_BOOST_LOW_HZ) & (freqs <= NASAL_BOOST_HIGH_HZ)] *= NASAL_BOOST_GAIN
+    gain[freqs < BASS_CUT_HZ] *= BASS_CUT_GAIN
+
+    return np.fft.irfft(spectrum * gain, n=len(samples))
+
+
 def _apply_robot_voice(samples: np.ndarray, framerate: int) -> np.ndarray:
-    """Pitch/speed-shifts and ring-modulates `samples` (already at
-    `framerate`) to sound more like a small robot. See the ROBOT_VOICE_*
-    constants above to adjust the character."""
+    """Pitch/speed-shifts, EQs, and ring-modulates `samples` (already at
+    `framerate`) into the robot voice character. See the ROBOT_VOICE_*/
+    NASAL_*/BASS_* constants above to adjust it."""
 
     # Speed + pitch shift together: resample the waveform onto fewer points
-    # spanning the same original range, so it plays back faster/higher at
-    # the SAME declared sample rate (the "chipmunk" effect).
+    # spanning the same original range, so it plays back faster/higher (or
+    # slower/lower) at the SAME declared sample rate.
     if ROBOT_VOICE_SPEED != 1.0:
         new_len = max(1, int(len(samples) / ROBOT_VOICE_SPEED))
         old_indices = np.arange(len(samples))
         new_indices = np.linspace(0, len(samples) - 1, num=new_len)
         samples = np.interp(new_indices, old_indices, samples)
 
-    # Ring modulation for a buzzy, metallic texture. The carrier can boost
+    samples = _apply_nasal_eq(samples, framerate)
+
+    # Ring modulation for a buzzy, textured quality. The carrier can boost
     # amplitude by up to (1 + MOD_DEPTH), so scale down first to leave
     # enough headroom that modulation peaks don't clip against the
     # eventual int16 range.
@@ -136,6 +164,16 @@ def _apply_robot_voice(samples: np.ndarray, framerate: int) -> np.ndarray:
     t = np.arange(len(samples)) / framerate
     carrier = 1.0 + ROBOT_VOICE_MOD_DEPTH * np.sin(2 * np.pi * ROBOT_VOICE_MOD_FREQ_HZ * t)
     samples = samples * carrier
+
+    # Final safety net: rather than hand-calculating exact headroom for
+    # every combination of effects above (fragile -- easy to get subtly
+    # wrong whenever a gain constant changes), just peak-normalize if
+    # needed. NASAL_BOOST_GAIN in particular can push peaks well past the
+    # eventual int16 range depending on the source audio.
+    peak = np.abs(samples).max()
+    safe_peak = 32000  # a hair under int16 max, avoids clipping on rounding
+    if peak > safe_peak:
+        samples = samples * (safe_peak / peak)
 
     return samples
 
