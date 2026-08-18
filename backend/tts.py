@@ -61,6 +61,17 @@ ROBOT_VOICE_ENABLED = True
 # playing a record at the wrong speed -- rather than shifting pitch alone.
 ROBOT_VOICE_SPEED = 1.15
 
+# Vibrato: makes pitch rise and fall periodically over the phrase instead
+# of staying perfectly constant, which is most of what makes a voice
+# sound "animated"/expressive rather than flat and monotone -- a constant
+# pitch shift alone (ROBOT_VOICE_SPEED above) doesn't add any variation
+# over time, however it's tuned. RATE is wobbles per second (a few Hz
+# reads as lively; much faster starts sounding like a buzz/texture
+# instead, which is what MOD_FREQ_HZ below is already for); DEPTH is how
+# strong the wobble is, as a fraction of the base speed (0 = off).
+ROBOT_VOICE_VIBRATO_RATE_HZ = 4.5
+ROBOT_VOICE_VIBRATO_DEPTH = 0.18
+
 # Ring modulation: multiplies the voice by a low-frequency tone, which adds
 # a buzzy, textured "robotic" quality on top. Lower MOD_FREQ_HZ leans more
 # "wobbly/gritty"; higher leans more "metallic buzz". Higher MOD_DEPTH =
@@ -138,19 +149,41 @@ def _apply_nasal_eq(samples: np.ndarray, framerate: int) -> np.ndarray:
     return np.fft.irfft(spectrum * gain, n=len(samples))
 
 
-def _apply_robot_voice(samples: np.ndarray, framerate: int) -> np.ndarray:
-    """Pitch/speed-shifts, EQs, and ring-modulates `samples` (already at
-    `framerate`) into the robot voice character. See the ROBOT_VOICE_*/
-    NASAL_*/BASS_* constants above to adjust it."""
+def _pitch_shift_with_vibrato(samples: np.ndarray, framerate: int) -> np.ndarray:
+    """
+    Speed/pitch-shifts by ROBOT_VOICE_SPEED (like a record played at the
+    wrong speed), with a periodic wobble added on top
+    (ROBOT_VOICE_VIBRATO_*) so the pitch rises and falls over the phrase
+    instead of staying perfectly constant. Implemented as a variable-rate
+    resample: at each output sample, how far to advance through the
+    input oscillates around the base rate rather than being fixed.
+    """
+    new_len = max(1, int(len(samples) / ROBOT_VOICE_SPEED))
+    if new_len < 2 or len(samples) < 2:
+        return samples
 
-    # Speed + pitch shift together: resample the waveform onto fewer points
-    # spanning the same original range, so it plays back faster/higher (or
-    # slower/lower) at the SAME declared sample rate.
-    if ROBOT_VOICE_SPEED != 1.0:
-        new_len = max(1, int(len(samples) / ROBOT_VOICE_SPEED))
-        old_indices = np.arange(len(samples))
-        new_indices = np.linspace(0, len(samples) - 1, num=new_len)
-        samples = np.interp(new_indices, old_indices, samples)
+    base_step = (len(samples) - 1) / (new_len - 1)
+    t = np.arange(new_len) / framerate
+    wobble = 1.0 + ROBOT_VOICE_VIBRATO_DEPTH * np.sin(2 * np.pi * ROBOT_VOICE_VIBRATO_RATE_HZ * t)
+    step = base_step * wobble
+
+    # Cumulative sum of per-sample steps = position to read from in the
+    # input at each output sample; shifted so the first output sample
+    # reads from the very start of the input rather than one step in.
+    input_position = np.cumsum(step) - step[0]
+    input_position = np.clip(input_position, 0, len(samples) - 1)
+
+    old_indices = np.arange(len(samples))
+    return np.interp(input_position, old_indices, samples)
+
+
+def _apply_robot_voice(samples: np.ndarray, framerate: int) -> np.ndarray:
+    """Pitch/speed-shifts (with vibrato), EQs, and ring-modulates
+    `samples` (already at `framerate`) into the robot voice character.
+    See the ROBOT_VOICE_*/NASAL_*/BASS_* constants above to adjust it."""
+
+    if ROBOT_VOICE_SPEED != 1.0 or ROBOT_VOICE_VIBRATO_DEPTH != 0.0:
+        samples = _pitch_shift_with_vibrato(samples, framerate)
 
     samples = _apply_nasal_eq(samples, framerate)
 
