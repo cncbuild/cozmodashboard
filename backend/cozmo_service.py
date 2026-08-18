@@ -241,6 +241,16 @@ class CozmoService:
         wav_path = synthesize_speech_wav(text)
         try:
             self.client.play_audio(str(wav_path))
+            # client.play_audio() only QUEUES the audio onto Cozmo's
+            # animation/audio track -- it returns immediately, it does NOT
+            # wait for playback to actually finish. Without this, whatever
+            # runs next (deleting wav_path above, disconnecting, etc.) can
+            # race ahead of Cozmo actually finishing speaking and cut the
+            # audio off silently -- no error, connection stays alive, he
+            # just never finishes (or never even starts) making sound.
+            # EvtAudioCompleted fires when Cozmo's audio track genuinely
+            # empties out, so this blocks until that's really true.
+            self.client.wait_for(pycozmo.EvtAudioCompleted, timeout=60.0)
         finally:
             wav_path.unlink(missing_ok=True)
 
