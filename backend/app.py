@@ -23,6 +23,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 import pycozmo
 from animations import ANIMATIONS
 from cozmo_service import MAX_WHEEL_SPEED, service
+from known_faces import known_faces
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("app")
@@ -247,20 +248,60 @@ def camera_stream():
 
 
 # ----------------------------------------------------------------------
-# Face detection
+# Face detection & recognition
 # ----------------------------------------------------------------------
 
 @app.route("/api/face-detection")
 def face_detection_status():
     """
-    Detected face boxes are already drawn directly onto the camera stream
-    above (see CozmoService._on_camera_image), so this is only for a
-    small text status the frontend can show without staring at the video
-    -- not gated behind _require_connected() since it's read-only status,
-    not an action: just reports zero faces if not connected.
+    Detected face boxes (and name labels, for recognized faces) are
+    already drawn directly onto the camera stream above (see
+    CozmoService._on_camera_image), so this is only for a small text
+    status the frontend can show without staring at the video -- not
+    gated behind _require_connected() since it's read-only status, not
+    an action: just reports zero faces if not connected.
+
+    `names` is the same length as face_count -- an entry is a name if
+    that face matched someone enrolled, or null if it didn't.
     """
-    count = service.get_face_count() if service.connected else 0
-    return jsonify(face_detected=count > 0, face_count=count)
+    if not service.connected:
+        return jsonify(face_detected=False, face_count=0, names=[])
+    count = service.get_face_count()
+    return jsonify(face_detected=count > 0, face_count=count, names=service.get_face_names())
+
+
+@app.route("/api/faces")
+def list_known_faces():
+    """Names of everyone currently enrolled."""
+    return jsonify(names=known_faces.names())
+
+
+@app.route("/api/faces/enroll", methods=["POST"])
+def enroll_face():
+    """
+    Body: {"name": "..."}. Enrolls whoever is currently in frame under
+    that name -- fails with a kid-readable error if there's nobody (or
+    more than one person) visible right now.
+    """
+    if (err := _require_connected()) is not None:
+        return err
+    body = _json_body()
+    name = (body.get("name") or "").strip()
+    if not name:
+        return jsonify(error="Please type a name first."), 400
+    if len(name) > 50:
+        return jsonify(error="That name is too long."), 400
+    error = service.enroll_face(name)
+    if error:
+        return jsonify(error=error), 400
+    return jsonify(ok=True)
+
+
+@app.route("/api/faces/<name>", methods=["DELETE"])
+def forget_face(name: str):
+    if known_faces.forget(name):
+        return jsonify(ok=True)
+    return jsonify(error=f"{name!r} isn't a known face."), 404
 
 
 # ----------------------------------------------------------------------

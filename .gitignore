@@ -5,3 +5,7 @@ __pycache__/
 backend/camera_test.jpg
 voices/
 backend.log
+
+# Enrolled face data (feature vectors, not photos, but still biometric --
+# never commit this, especially since this repo is public).
+backend/known_faces.json

@@ -316,13 +316,11 @@ setInterval(() => {
 }, 5000);
 
 // ---------------------------------------------------------------------
-// Face detection status -- the actual face BOXES are already drawn
-// directly onto the camera stream by the backend (see
-// CozmoService._on_camera_image in cozmo_service.py); this is just a
-// small text readout so it's obvious at a glance without staring at the
-// video. Detection itself only looks for "is a face there", not whose --
-// see face_detection.py for why recognizing specific people is a
-// deliberately separate, later step.
+// Face detection/recognition status -- the actual face BOXES (and name
+// labels, for recognized faces) are already drawn directly onto the
+// camera stream by the backend (see CozmoService._on_camera_image in
+// cozmo_service.py); this is just a small text readout so it's obvious
+// at a glance without staring at the video.
 // ---------------------------------------------------------------------
 
 async function pollFaceDetection() {
@@ -332,10 +330,10 @@ async function pollFaceDetection() {
     const el = document.getElementById("face-status");
     if (data.face_count === 0) {
       el.textContent = "Looking for faces...";
-    } else if (data.face_count === 1) {
-      el.textContent = "👀 I see a face!";
     } else {
-      el.textContent = `👀 I see ${data.face_count} faces!`;
+      // A null entry means that face didn't match anyone enrolled.
+      const labels = data.names.map((n) => n || "someone I don't know");
+      el.textContent = `👀 I see ${labels.join(" and ")}!`;
     }
   } catch {
     // Connection errors already surface elsewhere (status badge, camera
@@ -346,9 +344,64 @@ async function pollFaceDetection() {
 }
 
 // ---------------------------------------------------------------------
+// Face enrollment -- "teach" Cozmo a name for whoever's currently in
+// frame. Only works with exactly one person visible (see
+// CozmoService.enroll_face) so there's no ambiguity about who's being
+// named; apiPost already shows a toast if that's not the case.
+// ---------------------------------------------------------------------
+
+document.getElementById("enroll-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const input = document.getElementById("enroll-name-input");
+  const name = input.value.trim();
+  if (!name) return;
+  const res = await apiPost("/api/faces/enroll", { name });
+  if (res && res.ok) {
+    input.value = "";
+    loadKnownFaces();
+  }
+});
+
+async function loadKnownFaces() {
+  let names;
+  try {
+    const res = await fetch("/api/faces");
+    names = (await res.json()).names;
+  } catch {
+    return;
+  }
+
+  const list = document.getElementById("known-faces-list");
+  list.innerHTML = "";
+  if (names.length === 0) {
+    const li = document.createElement("li");
+    li.className = "known-faces-empty";
+    li.textContent = "Nobody yet -- get someone in frame and name them above!";
+    list.appendChild(li);
+    return;
+  }
+  for (const name of names) {
+    const li = document.createElement("li");
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = name;
+    const forgetBtn = document.createElement("button");
+    forgetBtn.className = "forget-btn";
+    forgetBtn.textContent = "Forget";
+    forgetBtn.addEventListener("click", async () => {
+      await fetch(`/api/faces/${encodeURIComponent(name)}`, { method: "DELETE" });
+      loadKnownFaces();
+    });
+    li.appendChild(nameSpan);
+    li.appendChild(forgetBtn);
+    list.appendChild(li);
+  }
+}
+
+// ---------------------------------------------------------------------
 // Go
 // ---------------------------------------------------------------------
 
 pollStatus();
 loadAnimations();
 pollFaceDetection();
+loadKnownFaces();

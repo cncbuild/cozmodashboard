@@ -18,6 +18,7 @@ import pycozmo
 
 from animations import ANIMATIONS
 from face_detection import detect_faces, draw_face_boxes, warm_up as warm_up_face_detection
+from known_faces import known_faces, warm_up as warm_up_face_recognition
 from tts import synthesize_speech_wav
 
 logger = logging.getLogger("cozmo_service")
@@ -82,12 +83,20 @@ class CozmoService:
         self._latest_jpeg: Optional[bytes] = None
         self._frame_condition = threading.Condition()
 
-        # Most recent face-detection result -- (x, y, w, h) boxes -- and
-        # when that detection last ran, for the FACE_DETECTION_INTERVAL
-        # throttle. Updated from the same camera-frame callback as
-        # _latest_jpeg above, so no separate lock is needed for these.
+        # Most recent face-detection result -- (x, y, w, h) boxes, plus
+        # a name (or None if unrecognized) for each -- and when that
+        # detection last ran, for the FACE_DETECTION_INTERVAL throttle.
+        # Updated from the same camera-frame callback as _latest_jpeg
+        # above, so no separate lock is needed for these.
         self._latest_faces: list = []
+        self._latest_face_names: list = []
         self._last_face_detection_at = 0.0
+
+        # The most recent raw (un-annotated) camera frame, needed for
+        # enroll_face() to crop a fresh reference sample -- the boxes
+        # drawn into _latest_jpeg would end up baked into any crop taken
+        # from that instead.
+        self._latest_raw_image = None
 
         self._watchdog_thread: Optional[threading.Thread] = None
         self._stop_watchdog = threading.Event()
@@ -129,6 +138,7 @@ class CozmoService:
         # than as a delay on the first real camera frame -- see the
         # comment on warm_up() for why that cost exists at all.
         warm_up_face_detection()
+        warm_up_face_recognition()
 
         # Turn on the camera and register a handler that keeps only the
         # single most recent frame -- we don't need a history, just
@@ -281,17 +291,22 @@ class CozmoService:
 
     def _on_camera_image(self, cli, image) -> None:
         del cli
+        self._latest_raw_image = image
 
         now = time.monotonic()
         if now - self._last_face_detection_at >= FACE_DETECTION_INTERVAL:
             self._latest_faces = detect_faces(image)
+            self._latest_face_names = [
+                known_faces.recognize(image, box) for box in self._latest_faces
+            ]
             self._last_face_detection_at = now
 
+        display_image = image
         if self._latest_faces:
-            image = draw_face_boxes(image, self._latest_faces)
+            display_image = draw_face_boxes(image, self._latest_faces, self._latest_face_names)
 
         buf = io.BytesIO()
-        image.save(buf, format="JPEG", quality=70)
+        display_image.save(buf, format="JPEG", quality=70)
         with self._frame_condition:
             self._latest_jpeg = buf.getvalue()
             self._frame_condition.notify_all()
@@ -305,6 +320,28 @@ class CozmoService:
     def get_face_count(self) -> int:
         """Number of faces in the most recent camera frame."""
         return len(self._latest_faces)
+
+    def get_face_names(self) -> list:
+        """Name for each currently-detected face, in the same order as
+        the boxes -- None for a face nobody enrolled matches."""
+        return list(self._latest_face_names)
+
+    def enroll_face(self, name: str) -> Optional[str]:
+        """
+        Tries to enroll the current camera view under `name`. Returns
+        None on success, or a kid-readable error message on failure
+        (no camera image yet, no face visible, or more than one face --
+        enrollment only works with exactly one person in frame, to avoid
+        guessing which face was meant).
+        """
+        if self._latest_raw_image is None:
+            return "I can't see anything yet -- wait a moment and try again."
+        if not self._latest_faces:
+            return "I don't see a face right now -- make sure Cozmo can see you clearly."
+        if len(self._latest_faces) > 1:
+            return "I see more than one face -- only one person at a time, please."
+        known_faces.enroll(name, self._latest_raw_image, self._latest_faces[0])
+        return None
 
     # ------------------------------------------------------------------
     # Safety watchdog -- auto-stops motors if "held button" commands go stale

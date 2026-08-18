@@ -64,6 +64,16 @@
     </form>
   </section>
 
+  <!-- Face enrollment: teach Cozmo a name for whoever's in frame -->
+  <section class="panel faces-panel">
+    <h2>🧑‍🤝‍🧑 People Cozmo Knows</h2>
+    <form id="enroll-form">
+      <input id="enroll-name-input" type="text" maxlength="50" placeholder="Type their name..." autocomplete="off">
+      <button type="submit">Remember This Face!</button>
+    </form>
+    <ul id="known-faces-list" class="known-faces-list"></ul>
+  </section>
+
   <!-- Animation buttons, grouped by category -->
   <section class="panel animations-panel">
     <h2>✨ Animations</h2>

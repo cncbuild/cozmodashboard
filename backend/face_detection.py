@@ -109,10 +109,21 @@ def detect_faces(image: Image.Image) -> list:
     return [tuple(int(v * scale) for v in box) for box in boxes]
 
 
-def draw_face_boxes(image: Image.Image, boxes: list) -> Image.Image:
-    """Returns a COPY of `image` with a rectangle drawn around each face box."""
+def draw_face_boxes(image: Image.Image, boxes: list, names: list = None) -> Image.Image:
+    """
+    Returns a COPY of `image` with a rectangle drawn around each face
+    box. If `names` is given (same length as `boxes`, entries may be
+    None for an unrecognized face), a name label is drawn above each box
+    that has one -- see known_faces.py for where names come from.
+    """
     annotated = image.copy()
     draw = ImageDraw.Draw(annotated)
-    for (x, y, w, h) in boxes:
+    if names is None:
+        names = [None] * len(boxes)
+    for (x, y, w, h), name in zip(boxes, names):
         draw.rectangle([x, y, x + w, y + h], outline=BOX_COLOR, width=BOX_WIDTH)
+        if name:
+            label_width = max(w, 8 * len(name) + 8)
+            draw.rectangle([x, y - 20, x + label_width, y], fill=BOX_COLOR)
+            draw.text((x + 4, y - 18), name, fill=(30, 30, 30))
     return annotated

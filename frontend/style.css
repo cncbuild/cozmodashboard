@@ -227,6 +227,77 @@ main {
 
 #talk-form button:active { transform: translateY(4px); box-shadow: none; }
 
+/* --- Face enrollment --- */
+
+#enroll-form {
+  display: flex;
+  gap: 12px;
+}
+
+#enroll-name-input {
+  flex: 1;
+  font-size: 1.1rem;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 2px solid #cfe8f7;
+  outline: none;
+}
+
+#enroll-name-input:focus { border-color: var(--color-sky-dark); }
+
+#enroll-form button {
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-sky-dark);
+  color: white;
+  font-size: 1.1rem;
+  font-weight: bold;
+  padding: 0 26px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+#enroll-form button:active { transform: translateY(4px); box-shadow: none; }
+
+.known-faces-list {
+  list-style: none;
+  margin: 16px 0 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.known-faces-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #eaf6ff;
+  border-radius: 999px;
+  padding: 8px 8px 8px 16px;
+  font-weight: bold;
+}
+
+.known-faces-empty {
+  background: transparent !important;
+  font-weight: normal !important;
+  color: #607d8b;
+  padding: 0 !important;
+}
+
+.forget-btn {
+  border: none;
+  border-radius: 999px;
+  background: var(--color-red);
+  color: white;
+  font-size: 0.85rem;
+  font-weight: bold;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.forget-btn:active { transform: translateY(2px); }
+
 /* --- Animation buttons --- */
 
 .anim-category { margin-bottom: 18px; }
