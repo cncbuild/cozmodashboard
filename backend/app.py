@@ -27,6 +27,12 @@ from cozmo_service import MAX_WHEEL_SPEED, service
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("app")
 
+# Flask's dev server logs every single request at INFO level by default --
+# the dashboard alone generates one every ~2s just from its own status
+# polling, which drowns out genuinely useful log lines (like "Connected to
+# Cozmo") in a hurry. Quiet it down to warnings/errors only.
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
 # Full wheel speed (pycozmo.MAX_WHEEL_SPEED) is quite fast for indoor,
 # kid-supervised driving. The D-pad/joystick in the frontend sends values
 # from -1..1; this scales that down to a friendlier top speed. Turn this up

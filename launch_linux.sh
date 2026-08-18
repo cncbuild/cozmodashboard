@@ -16,14 +16,25 @@ set -e
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_DIR"
 
-# Start the backend in the background.
-.venv/bin/python backend/app.py &
+# Backend output (including every API request Flask logs, which happens
+# every couple seconds just from the dashboard polling its own status)
+# goes to a log file instead of this terminal -- otherwise it's impossible
+# to read anything here, including this script's own status messages.
+# Check backend.log if something needs troubleshooting.
+LOG_FILE="$PROJECT_DIR/backend.log"
+.venv/bin/python backend/app.py > "$LOG_FILE" 2>&1 &
 BACKEND_PID=$!
 
 # Whatever happens below, make sure the backend doesn't keep running after
-# this script exits (e.g. after the browser window is closed).
+# this script exits (e.g. after the browser window is closed). Falls back
+# to SIGKILL if it doesn't stop quickly on its own.
 cleanup() {
     kill "$BACKEND_PID" 2>/dev/null || true
+    for _ in 1 2 3 4 5; do
+        kill -0 "$BACKEND_PID" 2>/dev/null || return
+        sleep 0.2
+    done
+    kill -9 "$BACKEND_PID" 2>/dev/null || true
 }
 trap cleanup EXIT
 
