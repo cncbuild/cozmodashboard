@@ -30,6 +30,12 @@ have him notice and recognize faces.
   they're still in frame. Tunable via `GREETING_*` constants in
   `cozmo_service.py`. Verified the trigger-once/cooldown/no-overlap
   behavior directly; not yet heard on real Cozmo
+- **Voice Lab**: every robot-voice effect parameter (pitch/speed,
+  vibrato, buzz, nasal EQ) is live-adjustable from the app itself, not
+  just by editing code -- see "Tuning Cozmo's voice" below. Verified
+  end-to-end in-browser: sliders update live while dragging, persist on
+  release, the enable toggle and reset-to-default both work, and
+  settings survive a backend restart (`backend/voice_settings.json`)
 
 ## How it's structured
 
@@ -38,7 +44,11 @@ have him notice and recognize faces.
   - `animations.py` -- curated, kid-friendly animation buttons (edit this
     to add/rename animations, no code changes needed elsewhere)
   - `tts.py` -- offline text-to-speech, normalized to the audio format
-    Cozmo's speaker requires, plus a tunable "robot voice" effect
+    Cozmo's speaker requires, plus the robot voice effect. Every effect
+    parameter lives in `VOICE_SETTINGS_SCHEMA` -- the single source of
+    truth for the Voice Lab UI's sliders/labels/ranges *and* the
+    validated API, so adding a new effect parameter there is all it
+    takes to get a working slider, no frontend changes needed
   - `face_detection.py` -- detects faces in each camera frame; boxes
     are drawn directly onto the camera stream, no frontend work needed
     to see it working
@@ -133,6 +143,21 @@ On Linux specifically, it picks whichever of `chromium-browser`,
 `chromium`, `google-chrome-stable`, or `google-chrome` is actually
 installed, rather than assuming one -- Endless OS ships Chromium by
 default, but this doesn't hardcode that.
+
+## Tuning Cozmo's voice
+
+The **Voice Lab** panel in the app has a slider for every robot-voice
+effect parameter (pitch/speed, vibrato, buzz, nasal EQ), an on/off
+toggle, a "Test Voice" button (says a canned phrase through Cozmo so you
+can hear a change without typing your own), and a "Reset to Default"
+button. Changes apply immediately and persist across restarts
+(`backend/voice_settings.json`, gitignored -- it's a live personal
+preference file, not something that belongs in source history).
+
+No code editing needed for this anymore -- it's here mainly so you know
+where to look if a slider's range feels too narrow/wide for what you're
+going for: each one's min/max/step lives in `VOICE_SETTINGS_SCHEMA` in
+`backend/tts.py`.
 
 ## Running the backend directly (no launcher, e.g. for development)
 

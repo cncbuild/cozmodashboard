@@ -24,6 +24,7 @@ import pycozmo
 from animations import ANIMATIONS
 from cozmo_service import MAX_WHEEL_SPEED, service
 from known_faces import known_faces
+from tts import VOICE_SETTINGS_SCHEMA, voice_settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("app")
@@ -43,6 +44,13 @@ DRIVE_SPEED_SCALE = 0.6
 FRONTEND_DIR = "../frontend"
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
+
+# Flask's jsonify() alphabetizes dict keys by default. VOICE_SETTINGS_SCHEMA
+# (and ANIMATIONS' iteration order for its categories) is deliberately
+# ordered for the frontend to group/display things sensibly -- alphabetical
+# would scramble e.g. "Pitch, Vibrato, Buzz, Nasal" into "Buzz, Nasal,
+# Pitch, Vibrato". Preserve whatever order the Python dict is actually in.
+app.json.sort_keys = False
 
 
 def _json_body() -> dict:
@@ -213,6 +221,49 @@ def say():
 
     threading.Thread(target=_speak, daemon=True).start()
     return jsonify(ok=True)
+
+
+# ----------------------------------------------------------------------
+# Voice Lab -- live-adjustable robot voice effect settings
+# ----------------------------------------------------------------------
+
+@app.route("/api/voice-settings")
+def get_voice_settings():
+    """
+    Returns everything the frontend needs to render the Voice Lab
+    sliders from scratch, with no per-parameter knowledge hardcoded in
+    the frontend: `schema` has each setting's label/group/min/max/step/
+    default (see VOICE_SETTINGS_SCHEMA in tts.py), and `current` has the
+    live value of every setting plus whether the effect is enabled at
+    all. Not gated behind _require_connected() -- this is just reading/
+    writing local settings, nothing to do with the Cozmo connection.
+    """
+    return jsonify(schema=VOICE_SETTINGS_SCHEMA, current=voice_settings.as_dict())
+
+
+@app.route("/api/voice-settings", methods=["POST"])
+def update_voice_settings():
+    """
+    Body: {"enabled": true/false, "values": {"speed": 1.2, ...}} -- both
+    keys optional, only sends what actually changed. Valid fields apply
+    even if others in the same request are rejected (e.g. a typo'd key),
+    so a partially-bad request doesn't lose the good part of it.
+    """
+    body = _json_body()
+    enabled = body.get("enabled")
+    values = body.get("values")
+    if values is not None and not isinstance(values, dict):
+        return jsonify(error="values must be an object"), 400
+    errors = voice_settings.update(enabled=enabled, values=values)
+    if errors:
+        return jsonify(error="; ".join(errors), current=voice_settings.as_dict()), 400
+    return jsonify(ok=True, current=voice_settings.as_dict())
+
+
+@app.route("/api/voice-settings/reset", methods=["POST"])
+def reset_voice_settings():
+    voice_settings.reset()
+    return jsonify(ok=True, current=voice_settings.as_dict())
 
 
 # ----------------------------------------------------------------------

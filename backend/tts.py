@@ -17,13 +17,15 @@ Two different engines are used depending on OS, both fully offline:
     package won't work there -- piper only touches this project's own venv
     and a downloaded voice model file, both in the user's home directory.
 
-Neither engine sounds anything like a robot on its own -- ROBOT_VOICE_*
-below is a hand-tuned effect (pitch/speed shift + ring modulation) built
-from listening and adjusting, aimed at a low, gravelly, WALL-E-ish
-character rather than Cozmo's own original voice (a specific licensed
-voice Anki applied its own effect to, which we have no access to). Not a
-reverse-engineered match to anything in particular -- the tunables are
-right here if you want to adjust the character (see _apply_robot_voice).
+Neither engine sounds anything like a robot on its own -- everything below
+VOICE_SETTINGS_SCHEMA is a hand-tuned effect (pitch/speed shift, vibrato,
+nasal EQ, ring modulation) built from listening and adjusting, not a
+reverse-engineered match to anything in particular. These are all
+LIVE-ADJUSTABLE through the app itself (Voice Lab panel in the frontend,
+backed by VoiceSettings below and the /api/voice-settings routes in
+app.py) rather than fixed constants -- VOICE_SETTINGS_SCHEMA is the single
+source of truth for what's adjustable, its label/grouping/range for the
+UI, and its default value, so the frontend never hardcodes any of that.
 
 Cozmo's speaker only accepts 16-bit PCM WAV audio at exactly 22050Hz or
 48000Hz (see pycozmo.audio.load_wav). Whatever the TTS engine produces is
@@ -31,6 +33,7 @@ normalized to that here, so this keeps working even if the default voice
 or model changes.
 """
 
+import json
 import pathlib
 import sys
 import tempfile
@@ -51,44 +54,148 @@ PIPER_VOICE_PATH = pathlib.Path(__file__).parent.parent / "voices" / f"{PIPER_VO
 
 _piper_voice = None  # lazily loaded, see _get_piper_voice()
 
-# --- "Robot voice" effect tuning -------------------------------------------
-# Set to False to hear the plain, unprocessed TTS voice (useful for judging
-# how much the effect below is actually changing).
-ROBOT_VOICE_ENABLED = True
+# --- Voice effect settings --------------------------------------------------
+#
+# Every numeric knob the robot voice effect has, in one place. Each entry:
+#   "label": text shown in the frontend's Voice Lab panel
+#   "group": which section of that panel it's grouped under
+#   "min" / "max" / "step": slider range -- also used to validate updates
+#     coming in over the API, so a bad value from a buggy client can't
+#     produce a broken (e.g. divide-by-zero, absurd) audio effect
+#   "default": value restored by the "reset to default" button/endpoint
+#
+# Add a new effect parameter by adding one entry here -- it automatically
+# gets a slider in the UI and a validated API field, no frontend changes
+# needed (same idea as animations.py for animation buttons).
+VOICE_SETTINGS_SCHEMA = {
+    "speed": {
+        "label": "Pitch / Speed", "group": "Pitch",
+        "min": 0.5, "max": 2.0, "step": 0.01, "default": 1.15,
+    },
+    "vibrato_rate_hz": {
+        "label": "Wobble Speed", "group": "Vibrato",
+        "min": 0.0, "max": 15.0, "step": 0.1, "default": 4.5,
+    },
+    "vibrato_depth": {
+        "label": "Wobble Strength", "group": "Vibrato",
+        "min": 0.0, "max": 0.6, "step": 0.01, "default": 0.18,
+    },
+    "mod_freq_hz": {
+        "label": "Buzz Frequency", "group": "Buzz",
+        "min": 5.0, "max": 100.0, "step": 1.0, "default": 25.0,
+    },
+    "mod_depth": {
+        "label": "Buzz Strength", "group": "Buzz",
+        "min": 0.0, "max": 1.0, "step": 0.01, "default": 0.45,
+    },
+    "nasal_boost_low_hz": {
+        "label": "Nasal Range Start", "group": "Nasal",
+        "min": 200.0, "max": 3000.0, "step": 10.0, "default": 900.0,
+    },
+    "nasal_boost_high_hz": {
+        "label": "Nasal Range End", "group": "Nasal",
+        "min": 500.0, "max": 6000.0, "step": 10.0, "default": 2400.0,
+    },
+    "nasal_boost_gain": {
+        "label": "Nasal Strength", "group": "Nasal",
+        "min": 1.0, "max": 6.0, "step": 0.1, "default": 3.2,
+    },
+    "bass_cut_hz": {
+        "label": "Bass Cutoff", "group": "Nasal",
+        "min": 50.0, "max": 1000.0, "step": 10.0, "default": 400.0,
+    },
+    "bass_cut_gain": {
+        "label": "Bass Level", "group": "Nasal",
+        "min": 0.0, "max": 1.0, "step": 0.01, "default": 0.22,
+    },
+}
 
-# How much faster + higher-pitched the voice becomes (1.0 = unchanged,
-# below 1.0 = slower/deeper). Speed and pitch move together here -- like
-# playing a record at the wrong speed -- rather than shifting pitch alone.
-ROBOT_VOICE_SPEED = 1.15
+# Persisted separately from the schema/defaults above -- this is where
+# live-adjusted values actually live. Not committed to git (gitignored):
+# it's a runtime preference file that'll keep changing as the voice gets
+# tuned, not something that belongs in the project's source history.
+STORAGE_PATH = pathlib.Path(__file__).parent / "voice_settings.json"
 
-# Vibrato: makes pitch rise and fall periodically over the phrase instead
-# of staying perfectly constant, which is most of what makes a voice
-# sound "animated"/expressive rather than flat and monotone -- a constant
-# pitch shift alone (ROBOT_VOICE_SPEED above) doesn't add any variation
-# over time, however it's tuned. RATE is wobbles per second (a few Hz
-# reads as lively; much faster starts sounding like a buzz/texture
-# instead, which is what MOD_FREQ_HZ below is already for); DEPTH is how
-# strong the wobble is, as a fraction of the base speed (0 = off).
-ROBOT_VOICE_VIBRATO_RATE_HZ = 4.5
-ROBOT_VOICE_VIBRATO_DEPTH = 0.18
 
-# Ring modulation: multiplies the voice by a low-frequency tone, which adds
-# a buzzy, textured "robotic" quality on top. Lower MOD_FREQ_HZ leans more
-# "wobbly/gritty"; higher leans more "metallic buzz". Higher MOD_DEPTH =
-# more pronounced/less intelligible.
-ROBOT_VOICE_MOD_FREQ_HZ = 25.0
-ROBOT_VOICE_MOD_DEPTH = 0.45
+class VoiceSettings:
+    """Holds the live (possibly user-adjusted) value of every effect
+    parameter, plus the master on/off toggle. Read from TTS synthesis
+    (possibly several threads at once -- /api/say and greeting reactions
+    both run in background threads) and written from Flask request
+    threads handling /api/voice-settings, hence the lock."""
 
-# Nasal quality: boosts the frequency band where nasal resonance actually
-# lives (not a pitch thing -- a real voice's formants, i.e. which
-# frequencies are loudest, is what makes a voice sound "nasal" vs not) and
-# cuts bass, since a nasal voice is thin on low end. NASAL_BOOST_GAIN /
-# BASS_CUT_GAIN are straight multipliers (1.0 = no change, <1.0 = quieter).
-NASAL_BOOST_LOW_HZ = 900.0
-NASAL_BOOST_HIGH_HZ = 2400.0
-NASAL_BOOST_GAIN = 3.2
-BASS_CUT_HZ = 400.0
-BASS_CUT_GAIN = 0.22
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._enabled = True
+        self._values = {key: schema["default"] for key, schema in VOICE_SETTINGS_SCHEMA.items()}
+        self._load()
+
+    def _load(self) -> None:
+        if not STORAGE_PATH.exists():
+            return
+        try:
+            data = json.loads(STORAGE_PATH.read_text())
+        except (OSError, json.JSONDecodeError):
+            return  # corrupt/unreadable -- just fall back to defaults
+        if "enabled" in data and isinstance(data["enabled"], bool):
+            self._enabled = data["enabled"]
+        for key, value in data.get("values", {}).items():
+            if key in VOICE_SETTINGS_SCHEMA:
+                self._values[key] = value
+
+    def _save(self) -> None:
+        STORAGE_PATH.write_text(json.dumps({"enabled": self._enabled, "values": self._values}, indent=2))
+
+    def snapshot(self) -> dict:
+        """A consistent point-in-time copy of every current value, for a
+        single synthesis call to use throughout (so a setting changing
+        mid-request can't partially apply)."""
+        with self._lock:
+            return {"enabled": self._enabled, **self._values}
+
+    def as_dict(self) -> dict:
+        with self._lock:
+            return {"enabled": self._enabled, "values": dict(self._values)}
+
+    def update(self, enabled=None, values: dict = None) -> list:
+        """Applies validated changes; returns a list of human-readable
+        error messages for anything rejected (unknown key, wrong type,
+        out of range) -- valid changes still apply even if others in the
+        same call are rejected."""
+        errors = []
+        with self._lock:
+            if enabled is not None:
+                if isinstance(enabled, bool):
+                    self._enabled = enabled
+                else:
+                    errors.append("enabled must be true or false")
+
+            for key, raw_value in (values or {}).items():
+                schema = VOICE_SETTINGS_SCHEMA.get(key)
+                if schema is None:
+                    errors.append(f"Unknown voice setting: {key!r}")
+                    continue
+                try:
+                    value = float(raw_value)
+                except (TypeError, ValueError):
+                    errors.append(f"{key} must be a number")
+                    continue
+                if not (schema["min"] <= value <= schema["max"]):
+                    errors.append(f"{key} must be between {schema['min']} and {schema['max']}")
+                    continue
+                self._values[key] = value
+
+            self._save()
+        return errors
+
+    def reset(self) -> None:
+        with self._lock:
+            self._enabled = True
+            self._values = {key: schema["default"] for key, schema in VOICE_SETTINGS_SCHEMA.items()}
+            self._save()
+
+
+voice_settings = VoiceSettings()
 # -----------------------------------------------------------------------
 
 
@@ -133,38 +240,43 @@ def _resample(samples: np.ndarray, orig_rate: int, target_rate: int) -> np.ndarr
     return np.interp(new_positions, old_positions, samples)
 
 
-def _apply_nasal_eq(samples: np.ndarray, framerate: int) -> np.ndarray:
-    """Boosts the nasal-formant frequency band and cuts bass -- see the
-    NASAL_*/BASS_* constants above. This is a whole-buffer FFT filter
-    (fine here since we process a full recorded phrase at once, not a
-    live stream) rather than a real-time-style filter, so it's just:
-    transform, scale each frequency bin, transform back."""
+def _apply_nasal_eq(samples: np.ndarray, framerate: int, settings: dict) -> np.ndarray:
+    """Boosts the nasal-formant frequency band and cuts bass. This is a
+    whole-buffer FFT filter (fine here since we process a full recorded
+    phrase at once, not a live stream) rather than a real-time-style
+    filter, so it's just: transform, scale each frequency bin, transform
+    back."""
     spectrum = np.fft.rfft(samples)
     freqs = np.fft.rfftfreq(len(samples), d=1.0 / framerate)
 
     gain = np.ones_like(freqs)
-    gain[(freqs >= NASAL_BOOST_LOW_HZ) & (freqs <= NASAL_BOOST_HIGH_HZ)] *= NASAL_BOOST_GAIN
-    gain[freqs < BASS_CUT_HZ] *= BASS_CUT_GAIN
+    nasal_band = (freqs >= settings["nasal_boost_low_hz"]) & (freqs <= settings["nasal_boost_high_hz"])
+    gain[nasal_band] *= settings["nasal_boost_gain"]
+    gain[freqs < settings["bass_cut_hz"]] *= settings["bass_cut_gain"]
 
     return np.fft.irfft(spectrum * gain, n=len(samples))
 
 
-def _pitch_shift_with_vibrato(samples: np.ndarray, framerate: int) -> np.ndarray:
+def _pitch_shift_with_vibrato(samples: np.ndarray, framerate: int, settings: dict) -> np.ndarray:
     """
-    Speed/pitch-shifts by ROBOT_VOICE_SPEED (like a record played at the
-    wrong speed), with a periodic wobble added on top
-    (ROBOT_VOICE_VIBRATO_*) so the pitch rises and falls over the phrase
-    instead of staying perfectly constant. Implemented as a variable-rate
-    resample: at each output sample, how far to advance through the
-    input oscillates around the base rate rather than being fixed.
+    Speed/pitch-shifts by settings["speed"] (like a record played at the
+    wrong speed), with a periodic wobble added on top (vibrato_rate_hz/
+    vibrato_depth) so the pitch rises and falls over the phrase instead
+    of staying perfectly constant -- a constant shift alone doesn't add
+    any variation over time, however it's tuned, which reads as flat/
+    monotone rather than animated/expressive. Implemented as a
+    variable-rate resample: at each output sample, how far to advance
+    through the input oscillates around the base rate rather than being
+    fixed.
     """
-    new_len = max(1, int(len(samples) / ROBOT_VOICE_SPEED))
+    speed = settings["speed"]
+    new_len = max(1, int(len(samples) / speed))
     if new_len < 2 or len(samples) < 2:
         return samples
 
     base_step = (len(samples) - 1) / (new_len - 1)
     t = np.arange(new_len) / framerate
-    wobble = 1.0 + ROBOT_VOICE_VIBRATO_DEPTH * np.sin(2 * np.pi * ROBOT_VOICE_VIBRATO_RATE_HZ * t)
+    wobble = 1.0 + settings["vibrato_depth"] * np.sin(2 * np.pi * settings["vibrato_rate_hz"] * t)
     step = base_step * wobble
 
     # Cumulative sum of per-sample steps = position to read from in the
@@ -177,30 +289,31 @@ def _pitch_shift_with_vibrato(samples: np.ndarray, framerate: int) -> np.ndarray
     return np.interp(input_position, old_indices, samples)
 
 
-def _apply_robot_voice(samples: np.ndarray, framerate: int) -> np.ndarray:
+def _apply_robot_voice(samples: np.ndarray, framerate: int, settings: dict) -> np.ndarray:
     """Pitch/speed-shifts (with vibrato), EQs, and ring-modulates
-    `samples` (already at `framerate`) into the robot voice character.
-    See the ROBOT_VOICE_*/NASAL_*/BASS_* constants above to adjust it."""
+    `samples` (already at `framerate`) into the robot voice character,
+    using the given settings snapshot (see VoiceSettings.snapshot)."""
 
-    if ROBOT_VOICE_SPEED != 1.0 or ROBOT_VOICE_VIBRATO_DEPTH != 0.0:
-        samples = _pitch_shift_with_vibrato(samples, framerate)
+    if settings["speed"] != 1.0 or settings["vibrato_depth"] != 0.0:
+        samples = _pitch_shift_with_vibrato(samples, framerate, settings)
 
-    samples = _apply_nasal_eq(samples, framerate)
+    samples = _apply_nasal_eq(samples, framerate, settings)
 
     # Ring modulation for a buzzy, textured quality. The carrier can boost
-    # amplitude by up to (1 + MOD_DEPTH), so scale down first to leave
+    # amplitude by up to (1 + mod_depth), so scale down first to leave
     # enough headroom that modulation peaks don't clip against the
     # eventual int16 range.
-    samples = samples / (1.0 + ROBOT_VOICE_MOD_DEPTH)
+    mod_depth = settings["mod_depth"]
+    samples = samples / (1.0 + mod_depth)
     t = np.arange(len(samples)) / framerate
-    carrier = 1.0 + ROBOT_VOICE_MOD_DEPTH * np.sin(2 * np.pi * ROBOT_VOICE_MOD_FREQ_HZ * t)
+    carrier = 1.0 + mod_depth * np.sin(2 * np.pi * settings["mod_freq_hz"] * t)
     samples = samples * carrier
 
     # Final safety net: rather than hand-calculating exact headroom for
     # every combination of effects above (fragile -- easy to get subtly
-    # wrong whenever a gain constant changes), just peak-normalize if
-    # needed. NASAL_BOOST_GAIN in particular can push peaks well past the
-    # eventual int16 range depending on the source audio.
+    # wrong whenever a gain constant changes, and now that these are
+    # user-adjustable at runtime, a hand-derived margin could be wrong
+    # for some combination no one's tried yet), just peak-normalize.
     #
     # 30000, not something closer to int16's real max (32767): traced an
     # actual crash into pycozmo's own audio encoder (audio.py's
@@ -241,10 +354,10 @@ def _synthesize_raw_wav(text: str, out_path: pathlib.Path) -> None:
 def synthesize_speech_wav(text: str) -> pathlib.Path:
     """
     Synthesizes `text` to a temporary WAV file formatted for Cozmo's
-    speaker (and, unless ROBOT_VOICE_ENABLED is False, processed to sound
-    more like him), and returns its path. The caller is responsible for
-    deleting the file (e.g. `path.unlink(missing_ok=True)`) once it's been
-    played.
+    speaker (and, unless voice_settings currently has the effect
+    disabled, processed into the robot voice), and returns its path. The
+    caller is responsible for deleting the file (e.g.
+    `path.unlink(missing_ok=True)`) once it's been played.
     """
     raw_path = pathlib.Path(tempfile.mktemp(suffix=".wav"))
     final_path = pathlib.Path(tempfile.mktemp(suffix=".wav"))
@@ -261,8 +374,11 @@ def synthesize_speech_wav(text: str) -> pathlib.Path:
 
         samples = _wav_to_mono_samples(raw_frames, channels, sampwidth)
         samples = _resample(samples, framerate, TARGET_FRAMERATE)
-        if ROBOT_VOICE_ENABLED:
-            samples = _apply_robot_voice(samples, TARGET_FRAMERATE)
+
+        settings = voice_settings.snapshot()
+        if settings["enabled"]:
+            samples = _apply_robot_voice(samples, TARGET_FRAMERATE, settings)
+
         samples = np.clip(samples, -32768, 32767).astype(np.int16)
 
         with wave.open(str(final_path), "wb") as out:

@@ -9,3 +9,7 @@ backend.log
 # Enrolled face data (feature vectors, not photos, but still biometric --
 # never commit this, especially since this repo is public).
 backend/known_faces.json
+
+# Live-adjusted voice effect settings (Voice Lab panel) -- a runtime
+# preference file, not something that belongs in source history.
+backend/voice_settings.json

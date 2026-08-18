@@ -64,6 +64,21 @@
     </form>
   </section>
 
+  <!-- Voice Lab: live-adjustable robot voice effect. Sliders below are
+       generated entirely from /api/voice-settings -- see app.js -->
+  <section class="panel voice-lab-panel">
+    <h2>🎚️ Voice Lab</h2>
+    <div class="voice-lab-toolbar">
+      <label class="voice-enable-toggle">
+        <input type="checkbox" id="voice-enabled-toggle" checked>
+        Robot voice effect on
+      </label>
+      <button id="voice-test-btn" type="button">🔊 Test Voice</button>
+      <button id="voice-reset-btn" type="button">↺ Reset to Default</button>
+    </div>
+    <div id="voice-lab-groups">Loading voice settings...</div>
+  </section>
+
   <!-- Face enrollment: teach Cozmo a name for whoever's in frame -->
   <section class="panel faces-panel">
     <h2>🧑‍🤝‍🧑 People Cozmo Knows</h2>

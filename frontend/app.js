@@ -290,6 +290,102 @@ document.getElementById("talk-form").addEventListener("submit", (e) => {
 });
 
 // ---------------------------------------------------------------------
+// Voice Lab -- every slider here is generated from /api/voice-settings'
+// schema (see VOICE_SETTINGS_SCHEMA in backend/tts.py), not hardcoded,
+// so adding a new effect parameter there is all it takes to get a
+// working slider here too.
+// ---------------------------------------------------------------------
+
+async function loadVoiceSettings() {
+  let schema, current;
+  try {
+    const res = await fetch("/api/voice-settings");
+    ({ schema, current } = await res.json());
+  } catch {
+    document.getElementById("voice-lab-groups").textContent = "Couldn't load voice settings.";
+    return;
+  }
+
+  document.getElementById("voice-enabled-toggle").checked = current.enabled;
+
+  // Group parameters by their "group" field, preserving schema order.
+  const groups = {};
+  for (const [key, info] of Object.entries(schema)) {
+    if (!groups[info.group]) groups[info.group] = [];
+    groups[info.group].push({ key, ...info });
+  }
+
+  const container = document.getElementById("voice-lab-groups");
+  container.innerHTML = "";
+  for (const [groupName, items] of Object.entries(groups)) {
+    const section = document.createElement("div");
+    section.className = "voice-group";
+
+    const heading = document.createElement("h3");
+    heading.textContent = groupName;
+    section.appendChild(heading);
+
+    for (const item of items) {
+      const row = document.createElement("div");
+      row.className = "voice-slider-row";
+
+      const labelRow = document.createElement("div");
+      labelRow.className = "voice-slider-label-row";
+      const label = document.createElement("span");
+      label.textContent = item.label;
+      const valueDisplay = document.createElement("span");
+      valueDisplay.className = "voice-slider-value";
+      valueDisplay.textContent = current.values[item.key];
+      labelRow.appendChild(label);
+      labelRow.appendChild(valueDisplay);
+
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.min = item.min;
+      slider.max = item.max;
+      slider.step = item.step;
+      slider.value = current.values[item.key];
+      slider.dataset.key = item.key;
+
+      // Live-update the number while dragging (no network cost), but
+      // only actually POST the change once the user releases the
+      // slider -- posting on every "input" event would fire dozens of
+      // requests per second while dragging.
+      slider.addEventListener("input", () => {
+        valueDisplay.textContent = slider.value;
+      });
+      slider.addEventListener("change", async () => {
+        const res = await apiPost("/api/voice-settings", { values: { [item.key]: Number(slider.value) } });
+        if (!res || !res.ok) {
+          // Rejected (shouldn't normally happen -- slider min/max already
+          // match the schema) -- reload to show whatever's actually saved.
+          loadVoiceSettings();
+        }
+      });
+
+      row.appendChild(labelRow);
+      row.appendChild(slider);
+      section.appendChild(row);
+    }
+
+    container.appendChild(section);
+  }
+}
+
+document.getElementById("voice-enabled-toggle").addEventListener("change", (e) => {
+  apiPost("/api/voice-settings", { enabled: e.target.checked });
+});
+
+document.getElementById("voice-test-btn").addEventListener("click", () => {
+  apiPost("/api/say", { text: "Testing, testing. This is what I sound like now." });
+});
+
+document.getElementById("voice-reset-btn").addEventListener("click", async () => {
+  await apiPost("/api/voice-settings/reset");
+  loadVoiceSettings();
+});
+
+// ---------------------------------------------------------------------
 // Camera stream -- browsers natively render a multipart/x-mixed-replace
 // MJPEG stream in a plain <img>. If it drops (Cozmo out of range, backend
 // restarted, etc.), retry every few seconds rather than staying broken.
@@ -405,3 +501,4 @@ pollStatus();
 loadAnimations();
 pollFaceDetection();
 loadKnownFaces();
+loadVoiceSettings();
