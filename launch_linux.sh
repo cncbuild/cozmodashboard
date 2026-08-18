@@ -74,19 +74,21 @@ done
 
 if [ -z "$BROWSER" ]; then
     echo "No Chromium-based browser found -- opening with the system default"
-    echo "browser instead (it'll show tabs/address bar, unlike --app mode)."
+    echo "browser instead (it'll show tabs/address bar, unlike --kiosk mode)."
     xdg-open http://127.0.0.1:5000
     wait "$BACKEND_PID"
 else
-    # --app opens a window with no tabs/address bar; --kiosk/--start-fullscreen
-    # make it fill the screen; --noerrdialogs/--disable-infobars hide the
-    # "restore pages?" and similar popups a kid shouldn't have to deal with.
-    # This call blocks until the window is closed, at which point the
-    # `trap cleanup EXIT` above stops the backend too.
+    # --kiosk on its own removes tabs/address bar/toolbars AND goes
+    # fullscreen. Deliberately NOT combined with --app -- Chromium's --app
+    # and --kiosk flags conflict with each other, and the combination
+    # often falls back to a plain windowed browser instead of true
+    # fullscreen (confirmed on this project's real Endless OS laptop).
+    # --noerrdialogs/--disable-infobars hide the "restore pages?" and
+    # similar popups a kid shouldn't have to deal with. This call blocks
+    # until the window is closed, at which point the `trap cleanup EXIT`
+    # above stops the backend too.
     "$BROWSER" \
-        --app=http://127.0.0.1:5000 \
-        --kiosk \
-        --start-fullscreen \
+        --kiosk http://127.0.0.1:5000 \
         --noerrdialogs \
         --disable-infobars \
         --disable-session-crashed-bubble
