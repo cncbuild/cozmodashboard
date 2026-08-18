@@ -59,9 +59,7 @@ ROBOT_VOICE_ENABLED = True
 # How much faster + higher-pitched the voice becomes (1.0 = unchanged,
 # below 1.0 = slower/deeper). Speed and pitch move together here -- like
 # playing a record at the wrong speed -- rather than shifting pitch alone.
-# Pulled back close to neutral after 0.82 came out "way too deep" --
-# the nasal quality below does more of the character work than pitch does.
-ROBOT_VOICE_SPEED = 0.95
+ROBOT_VOICE_SPEED = 1.15
 
 # Ring modulation: multiplies the voice by a low-frequency tone, which adds
 # a buzzy, textured "robotic" quality on top. Lower MOD_FREQ_HZ leans more
@@ -77,9 +75,9 @@ ROBOT_VOICE_MOD_DEPTH = 0.45
 # BASS_CUT_GAIN are straight multipliers (1.0 = no change, <1.0 = quieter).
 NASAL_BOOST_LOW_HZ = 900.0
 NASAL_BOOST_HIGH_HZ = 2400.0
-NASAL_BOOST_GAIN = 2.2
-BASS_CUT_HZ = 350.0
-BASS_CUT_GAIN = 0.4
+NASAL_BOOST_GAIN = 3.2
+BASS_CUT_HZ = 400.0
+BASS_CUT_GAIN = 0.22
 # -----------------------------------------------------------------------
 
 
@@ -170,8 +168,15 @@ def _apply_robot_voice(samples: np.ndarray, framerate: int) -> np.ndarray:
     # wrong whenever a gain constant changes), just peak-normalize if
     # needed. NASAL_BOOST_GAIN in particular can push peaks well past the
     # eventual int16 range depending on the source audio.
+    #
+    # 30000, not something closer to int16's real max (32767): traced an
+    # actual crash into pycozmo's own audio encoder (audio.py's
+    # u_law_encoding) -- any sample with |value| >= ~31612 overflows its
+    # encoding math past a valid byte (0-255) and raises ValueError. Not
+    # something to work around by patching pycozmo; just never produce
+    # samples that extreme in the first place.
     peak = np.abs(samples).max()
-    safe_peak = 32000  # a hair under int16 max, avoids clipping on rounding
+    safe_peak = 30000
     if peak > safe_peak:
         samples = samples * (safe_peak / peak)
 
