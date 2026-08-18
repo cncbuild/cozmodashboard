@@ -17,11 +17,12 @@ Two different engines are used depending on OS, both fully offline:
     package won't work there -- piper only touches this project's own venv
     and a downloaded voice model file, both in the user's home directory.
 
-Neither engine sounds anything like Cozmo's actual voice on its own --
-that was a specific licensed voice PLUS a robotic audio effect Anki applied
-on top of it, and we have no access to either. ROBOT_VOICE_* below is a
-hand-tuned approximation (pitch/speed shift + ring modulation) built from
-listening and adjusting, not a reverse-engineered match -- the tunables are
+Neither engine sounds anything like a robot on its own -- ROBOT_VOICE_*
+below is a hand-tuned effect (pitch/speed shift + ring modulation) built
+from listening and adjusting, aimed at a low, gravelly, WALL-E-ish
+character rather than Cozmo's own original voice (a specific licensed
+voice Anki applied its own effect to, which we have no access to). Not a
+reverse-engineered match to anything in particular -- the tunables are
 right here if you want to adjust the character (see _apply_robot_voice).
 
 Cozmo's speaker only accepts 16-bit PCM WAV audio at exactly 22050Hz or
@@ -55,17 +56,20 @@ _piper_voice = None  # lazily loaded, see _get_piper_voice()
 # how much the effect below is actually changing).
 ROBOT_VOICE_ENABLED = True
 
-# How much faster + higher-pitched the voice becomes (1.0 = unchanged).
-# Speed and pitch move together here -- like playing a record too fast --
-# which is what gives it that quick, higher "small robot" character rather
-# than just sounding like the same voice slowed/sped with unchanged pitch.
-ROBOT_VOICE_SPEED = 1.25
+# How much faster + higher-pitched the voice becomes (1.0 = unchanged,
+# below 1.0 = slower/deeper). Speed and pitch move together here -- like
+# playing a record at the wrong speed -- rather than shifting pitch alone.
+# WALL-E's voice is low and a bit gravelly/deliberate, not a fast chipmunk
+# voice, hence < 1.0 here (this was 1.25 -- faster/higher -- when this
+# was tuned for a small-Cozmo character instead).
+ROBOT_VOICE_SPEED = 0.82
 
 # Ring modulation: multiplies the voice by a low-frequency tone, which adds
-# a buzzy, metallic, "robotic" texture on top. Higher MOD_FREQ_HZ = a
-# higher-pitched buzz; higher MOD_DEPTH = more pronounced/less intelligible.
-ROBOT_VOICE_MOD_FREQ_HZ = 40.0
-ROBOT_VOICE_MOD_DEPTH = 0.35
+# a buzzy, textured "robotic" quality on top. Lower MOD_FREQ_HZ leans more
+# "wobbly/gritty"; higher leans more "metallic buzz". Higher MOD_DEPTH =
+# more pronounced/less intelligible.
+ROBOT_VOICE_MOD_FREQ_HZ = 25.0
+ROBOT_VOICE_MOD_DEPTH = 0.45
 # -----------------------------------------------------------------------
 
 
